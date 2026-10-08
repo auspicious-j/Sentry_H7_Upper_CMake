@@ -9,6 +9,7 @@ class RobotApplication::HeartbeatNode final : public robot::framework::PluginNod
 public:
     HeartbeatNode() : PluginNode(1U) {}
 
+    // context：当前 1 kHz 帧上下文。
     robot::framework::ProcessResult process(robot::framework::FrameContext&) override
     {
         return robot::framework::ProcessResult::Ok;
@@ -19,6 +20,7 @@ public:
 RobotApplication::RobotApplication()
     : profiler_(clock_)
 {
+    // heartbeat_node：静态心跳节点，不产生硬件输出。
     static HeartbeatNode heartbeat_node;
     heartbeat_ = &heartbeat_node;
 }
@@ -30,6 +32,7 @@ robot::framework::PluginStatus RobotApplication::initialize()
         return robot::framework::PluginStatus::InvalidState;
     }
 
+    // status：图组装和启动状态。
     robot::framework::PluginStatus status = graph_.add(*heartbeat_);
     if (status == robot::framework::PluginStatus::Ok) {
         status = graph_.compile();
@@ -61,6 +64,7 @@ robot::framework::ProcessResult RobotApplication::processFrame()
     frame_.frame_id++;
     frame_.timestamp_us = clock_.nowUs();
     profiler_.beginFrame(frame_.frame_id, frame_.timestamp_us);
+    // result：本帧插件图汇总结果。
     const robot::framework::ProcessResult result = graph_.processFrame(frame_, &profiler_);
     frame_.timestamp_us = clock_.nowUs();
     profiler_.endFrame(frame_.timestamp_us);

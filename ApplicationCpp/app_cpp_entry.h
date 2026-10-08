@@ -7,8 +7,11 @@ extern "C" {
 #endif
 
 // C 侧只调用这三个桥接函数，不直接接触 C++ 对象。
+// 初始化 C++ 应用。
 void AppCpp_Initialize(void);
+// 执行一帧 C++ 插件图。
 void AppCpp_ProcessFrame(void);
+// FreeRTOS 控制任务入口。
 void AppCpp_ControlTask(void const* argument);
 
 #ifdef __cplusplus

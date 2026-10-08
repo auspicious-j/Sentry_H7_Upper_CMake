@@ -14,21 +14,31 @@ namespace robot::application {
 // 组合根：负责创建插件图、初始化服务并向外提供一帧执行入口。
 class RobotApplication {
 public:
+    // 创建应用组合根。
     RobotApplication();
 
+    // 组装并启动插件图。
     robot::framework::PluginStatus initialize();
+    // 执行一帧插件业务。
     robot::framework::ProcessResult processFrame();
+    // 查询应用是否初始化成功。
     bool initialized() const { return initialized_; }
 
 private:
     class HeartbeatNode;
 
     // 当前骨架只有心跳节点；后续底盘、云台等节点从这里组装。
+    // 根插件图。
     robot::framework::PluginGraph graph_{};
+    // 心跳节点指针，实际对象为静态成员。
     HeartbeatNode* heartbeat_{nullptr};
+    // STM32 单调时钟。
     robot::platform::stm32::Stm32Clock clock_{};
+    // STM32 性能统计器。
     robot::platform::stm32::Stm32Profiler profiler_;
+    // 当前帧上下文。
     robot::framework::FrameContext frame_{};
+    // 应用是否完成启动。
     bool initialized_{false};
 };
 

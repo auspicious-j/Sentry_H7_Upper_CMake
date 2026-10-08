@@ -21,10 +21,12 @@ void Stm32Profiler::beginNode(robot::framework::PluginId id)
 // 节点结束时更新最近一次和历史最大耗时。
 void Stm32Profiler::endNode()
 {
+    // timestamp_us：节点结束时的当前时间。
     const uint64_t timestamp_us = clock_.nowUs();
     if (current_node_id_ == robot::framework::kInvalidPluginId || timestamp_us < node_start_us_) {
         return;
     }
+    // duration：本次节点或帧的耗时。
     const uint32_t duration = static_cast<uint32_t>(timestamp_us - node_start_us_);
     robot::platform::g_robot_debug.last_node_duration_us = duration;
     if (duration > robot::platform::g_robot_debug.max_node_duration_us) {

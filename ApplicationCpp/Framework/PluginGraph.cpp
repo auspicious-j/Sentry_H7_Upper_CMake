@@ -7,6 +7,7 @@ namespace robot::framework {
 // 在线性固定数组中查找节点；容量较小且只在启动期频繁使用。
 int PluginGraph::findNodeIndex(const PluginNode* node) const
 {
+    // index：当前节点或边的数组下标。
     for (uint16_t index = 0U; index < node_count_; ++index) {
         if (nodes_[index] == node) {
             return static_cast<int>(index);
@@ -19,6 +20,7 @@ int PluginGraph::findNodeIndex(const PluginNode* node) const
 bool PluginGraph::hasEdge(const PluginNode* before, const PluginNode* after, bool delayed) const
 {
     for (uint16_t index = 0U; index < edge_count_; ++index) {
+        // edge：当前检查的依赖边。
         const PluginEdge& edge = edges_[index];
         if (edge.before == before && edge.after == after && edge.delayed == delayed) {
             return true;
@@ -36,6 +38,7 @@ PluginStatus PluginGraph::add(PluginNode& node)
     if (findNodeIndex(&node) >= 0) {
         return PluginStatus::DuplicateNode;
     }
+    // index：用于检查已注册节点 ID。
     for (uint16_t index = 0U; index < node_count_; ++index) {
         if (nodes_[index]->id() == node.id()) {
             return PluginStatus::DuplicateNode;
@@ -80,14 +83,18 @@ PluginStatus PluginGraph::composeNode(PluginNode& node)
     }
 
     node.composed_ = true;
+    // status：子图组装结果。
     PluginStatus status = node.compose();
     if (status != PluginStatus::Ok) {
         return status;
     }
 
+    // child_graph：当前节点的内部子图。
     PluginGraph& child_graph = node.children();
+    // child_count：内部节点数量。
     const uint16_t child_count = child_graph.nodeCount();
     for (uint16_t index = 0U; index < child_count; ++index) {
+        // child：当前内部节点。
         PluginNode* child = child_graph.nodeAt(index);
         if (child == nullptr) {
             return PluginStatus::ConfigurationFault;
@@ -102,8 +109,10 @@ PluginStatus PluginGraph::composeNode(PluginNode& node)
         }
     }
 
+    // child_edge_count：内部依赖边数量。
     const uint16_t child_edge_count = child_graph.edgeCount();
     for (uint16_t index = 0U; index < child_edge_count; ++index) {
+        // edge：当前内部依赖边。
         const PluginEdge* edge = child_graph.edgeAt(index);
         if (edge == nullptr) {
             return PluginStatus::ConfigurationFault;
@@ -127,8 +136,10 @@ PluginStatus PluginGraph::compose()
     }
 
     composed_ = true;
+    // root_count：展开前的根节点数量。
     const uint16_t root_count = node_count_;
     for (uint16_t index = 0U; index < root_count; ++index) {
+        // status：当前根节点的展开结果。
         PluginStatus status = composeNode(*nodes_[index]);
         if (status != PluginStatus::Ok) {
             return status;
@@ -177,11 +188,15 @@ PluginStatus PluginGraph::compile()
         return status;
     }
 
+    // indegree：每个节点尚未满足的前置依赖数量。
     uint16_t indegree[ROBOT_MAX_PLUGIN_NODES]{};
+    // selected：节点是否已经加入执行顺序。
     bool selected[ROBOT_MAX_PLUGIN_NODES]{};
     for (uint16_t edge_index = 0U; edge_index < edge_count_; ++edge_index) {
+        // edge：当前待分析的依赖边。
         const PluginEdge& edge = edges_[edge_index];
         if (!edge.delayed) {
+            // after_index：边终点在节点数组中的位置。
             const int after_index = findNodeIndex(edge.after);
             if (after_index < 0) {
                 return PluginStatus::MissingNode;
@@ -192,6 +207,7 @@ PluginStatus PluginGraph::compile()
 
     execution_count_ = 0U;
     while (execution_count_ < node_count_) {
+        // ready_index：当前可执行节点的位置。
         int ready_index = -1;
         for (uint16_t index = 0U; index < node_count_; ++index) {
             if (!selected[index] && indegree[index] == 0U) {
@@ -204,6 +220,7 @@ PluginStatus PluginGraph::compile()
             return PluginStatus::CycleDetected;
         }
 
+        // ready_node：当前选中的节点。
         PluginNode* ready_node = nodes_[static_cast<uint16_t>(ready_index)];
         selected[static_cast<uint16_t>(ready_index)] = true;
         execution_order_[execution_count_] = ready_node;
@@ -212,6 +229,7 @@ PluginStatus PluginGraph::compile()
         for (uint16_t edge_index = 0U; edge_index < edge_count_; ++edge_index) {
             const PluginEdge& edge = edges_[edge_index];
             if (!edge.delayed && edge.before == ready_node) {
+                // after_index：后继节点的位置。
                 const int after_index = findNodeIndex(edge.after);
                 if (after_index >= 0 && indegree[static_cast<uint16_t>(after_index)] > 0U) {
                     --indegree[static_cast<uint16_t>(after_index)];
@@ -232,6 +250,7 @@ PluginStatus PluginGraph::configureAll()
         return PluginStatus::InvalidState;
     }
     for (uint16_t index = 0U; index < execution_count_; ++index) {
+        // status：当前节点配置结果。
         PluginStatus status = execution_order_[index]->configure();
         if (status != PluginStatus::Ok) {
             return status;
@@ -247,6 +266,7 @@ PluginStatus PluginGraph::startAll()
         return PluginStatus::InvalidState;
     }
     for (uint16_t index = 0U; index < execution_count_; ++index) {
+        // status：当前节点启动结果。
         PluginStatus status = execution_order_[index]->start();
         if (status != PluginStatus::Ok) {
             return status;
@@ -262,12 +282,15 @@ ProcessResult PluginGraph::processFrame(FrameContext& context, IProfiler* profil
         return ProcessResult::Fault;
     }
 
+    // aggregate：汇总本帧所有节点的最严重结果。
     ProcessResult aggregate = ProcessResult::Ok;
     for (uint16_t index = 0U; index < execution_count_; ++index) {
+        // node：当前执行的节点。
         PluginNode& node = *execution_order_[index];
         if (node.state() == PluginState::Disabled || node.state() == PluginState::Faulted) {
             continue;
         }
+        // result：当前节点本帧的处理结果。
         const ProcessResult result = node.process(context);
         node.recordProcessResult(result);
         if (result == ProcessResult::Fault) {

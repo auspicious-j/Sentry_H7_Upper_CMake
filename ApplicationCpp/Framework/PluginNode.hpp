@@ -9,16 +9,24 @@ namespace robot::framework {
 // 所有层级都使用同一个节点接口；节点可以拥有空的或非空的内部子图。
 class PluginNode {
 public:
+    // 使用固定 ID 创建节点。
     explicit PluginNode(PluginId id) : id_(id) {}
+    // 多态节点的虚析构。
     virtual ~PluginNode() = default;
 
+    // 返回节点 ID。
     PluginId id() const { return id_; }
+    // 返回生命周期状态。
     PluginState state() const { return snapshot_.state; }
+    // 返回健康状态。
     PluginHealth health() const { return snapshot_.health; }
+    // 返回调试快照。
     const PluginHealthSnapshot& healthSnapshot() const { return snapshot_; }
 
     /* Every node has a child graph. It may remain empty. */
+    // 返回可编辑的内部子图。
     PluginGraph& children() { return children_; }
+    // 返回只读内部子图。
     const PluginGraph& children() const { return children_; }
 
     // compose 只负责声明内部节点和依赖，不执行业务。
@@ -46,12 +54,14 @@ public:
     }
 
 protected:
+    // 将节点置为禁用状态。
     void disable()
     {
         snapshot_.state = PluginState::Disabled;
         snapshot_.health = PluginHealth::Degraded;
     }
 
+    // 记录节点故障码并进入 Faulted。
     void setFault(uint32_t fault_code)
     {
         snapshot_.state = PluginState::Faulted;
@@ -62,6 +72,7 @@ protected:
 private:
     friend class PluginGraph;
 
+    // 保存最近一次 process 结果。
     void recordProcessResult(ProcessResult result)
     {
         snapshot_.last_result = result;
@@ -74,9 +85,13 @@ private:
         }
     }
 
+    // 节点唯一 ID。
     PluginId id_{kInvalidPluginId};
+    // 节点内部子图。
     PluginGraph children_{};
+    // 节点健康和处理结果快照。
     PluginHealthSnapshot snapshot_{};
+    // 是否已经调用 compose。
     bool composed_{false};
 };
 
