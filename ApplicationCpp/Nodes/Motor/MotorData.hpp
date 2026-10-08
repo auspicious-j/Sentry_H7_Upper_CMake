@@ -1,4 +1,4 @@
-﻿#ifndef ROBOT_MOTOR_DATA_HPP
+#ifndef ROBOT_MOTOR_DATA_HPP
 #define ROBOT_MOTOR_DATA_HPP
 
 #include <cstdint>
@@ -20,6 +20,11 @@ struct MotorFeedback {
 // 一组电机反馈，供上层节点读取。
 struct MotorFeedbackFrame {
     MotorFeedback motor[kMotorChannelCount]{}; // 固定容量反馈数组。
+};
+
+// 一组电机在线状态。
+struct MotorOnlineFrame {
+    bool online[kMotorChannelCount]{}; // 固定容量在线状态数组。
 };
 
 // 一个电机的统一控制命令。

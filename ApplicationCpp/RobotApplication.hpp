@@ -5,6 +5,7 @@
 #include "Framework/PluginGraph.hpp"
 #include "Framework/PluginNode.hpp"
 #include "Nodes/Motor/MotorFeedbackNode.hpp"
+#include "Nodes/Motor/MotorOfflineNode.hpp"
 #include "Platform/IClock.hpp"
 #include "Platform/IProfiler.hpp"
 #include "../Platform/STM32/Stm32Clock.hpp"
@@ -34,6 +35,7 @@ private:
     // 心跳节点指针，实际对象为静态成员。
     HeartbeatNode* heartbeat_{nullptr};
     robot::motor::MotorFeedbackNode motor_feedback_{}; // 旧电机反馈到新端口的适配节点。
+    robot::motor::MotorOfflineNode motor_offline_{}; // 电机反馈超时检测节点。
     // STM32 单调时钟。
     robot::platform::stm32::Stm32Clock clock_{};
     // STM32 性能统计器。

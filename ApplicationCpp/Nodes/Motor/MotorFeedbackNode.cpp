@@ -31,7 +31,7 @@ const robot::framework::FrameSignal<MotorFeedbackFrame>& MotorFeedbackNode::sign
     return signal_;
 }
 
-MotorFeedback MotorFeedbackNode::convertDji(uint16_t id, const DJI_Motor_t& motor)
+MotorFeedback MotorFeedbackNode::convertDji(uint16_t id, uint8_t channel, const DJI_Motor_t& motor)
 {
     MotorFeedback feedback{}; // 当前 DJI 电机的统一反馈。
     feedback.id = id;
@@ -39,11 +39,11 @@ MotorFeedback MotorFeedbackNode::convertDji(uint16_t id, const DJI_Motor_t& moto
     feedback.speed = motor.speed;
     feedback.torque = motor.torque;
     feedback.temperature = motor.temp;
-    feedback.online = true;
+    feedback.online = BSP_MotorFeedbackIsOnline(channel, 100U);
     return feedback;
 }
 
-MotorFeedback MotorFeedbackNode::convertDm(uint16_t id, const DM_motor_t& motor)
+MotorFeedback MotorFeedbackNode::convertDm(uint16_t id, uint8_t channel, const DM_motor_t& motor)
 {
     MotorFeedback feedback{}; // 当前 DM 电机的统一反馈。
     feedback.id = id;
@@ -51,18 +51,18 @@ MotorFeedback MotorFeedbackNode::convertDm(uint16_t id, const DM_motor_t& motor)
     feedback.speed = static_cast<int16_t>(motor.para.v_int);
     feedback.torque = static_cast<int16_t>(motor.para.t_int);
     feedback.temperature = static_cast<int8_t>(motor.para.Tmos);
-    feedback.online = true;
+    feedback.online = BSP_MotorFeedbackIsOnline(channel, 100U);
     return feedback;
 }
 
 robot::framework::ProcessResult MotorFeedbackNode::process(robot::framework::FrameContext& context)
 {
     MotorFeedbackFrame frame{}; // 当前帧的统一反馈快照。
-    frame.motor[0] = convertDji(kFrictionMotor0Id, shooter.fricMotor[0]);
-    frame.motor[1] = convertDji(kFrictionMotor1Id, shooter.fricMotor[1]);
-    frame.motor[2] = convertDji(kTriggerMotorId, shooter.triggerMotor);
-    frame.motor[3] = convertDji(kTopYawMotorId, gimbal.top_yawMotor);
-    frame.motor[4] = convertDm(kPitchMotorId, gimbal.pitchMotor);
+    frame.motor[0] = convertDji(kFrictionMotor0Id, 0U, shooter.fricMotor[0]);
+    frame.motor[1] = convertDji(kFrictionMotor1Id, 1U, shooter.fricMotor[1]);
+    frame.motor[2] = convertDji(kTriggerMotorId, 2U, shooter.triggerMotor);
+    frame.motor[3] = convertDji(kTopYawMotorId, 3U, gimbal.top_yawMotor);
+    frame.motor[4] = convertDm(kPitchMotorId, 4U, gimbal.pitchMotor);
 
     if (!output_.publish(context.frame_id, frame)) {
         return robot::framework::ProcessResult::Fault;

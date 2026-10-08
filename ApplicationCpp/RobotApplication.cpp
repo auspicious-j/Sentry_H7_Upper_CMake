@@ -39,6 +39,9 @@ robot::framework::PluginStatus RobotApplication::initialize()
         status = graph_.add(motor_feedback_);
     }
     if (status == robot::framework::PluginStatus::Ok) {
+        status = graph_.add(motor_offline_);
+    }
+    if (status == robot::framework::PluginStatus::Ok) {
         status = graph_.compile();
     }
     if (status == robot::framework::PluginStatus::Ok) {

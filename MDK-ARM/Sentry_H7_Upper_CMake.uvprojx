@@ -899,6 +899,16 @@
           </Files>
         </Group>
         <Group>
+          <GroupName>ApplicationCpp/Nodes/Motor</GroupName>
+          <Files>
+            <File>
+              <FileName>MotorOfflineNode.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\ApplicationCpp\Nodes\Motor\MotorOfflineNode.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
           <GroupName>::CMSIS</GroupName>
         </Group>
       </Groups>

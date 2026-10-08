@@ -27,10 +27,10 @@ public:
 
 private:
     // 读取一个 DJI 电机并写入统一反馈结构。
-    static MotorFeedback convertDji(uint16_t id, const DJI_Motor_t& motor);
+    static MotorFeedback convertDji(uint16_t id, uint8_t channel, const DJI_Motor_t& motor);
 
     // 读取一个 DM 电机并写入统一反馈结构。
-    static MotorFeedback convertDm(uint16_t id, const DM_motor_t& motor);
+    static MotorFeedback convertDm(uint16_t id, uint8_t channel, const DM_motor_t& motor);
 
     robot::framework::FrameSignal<MotorFeedbackFrame> signal_{}; // 反馈信号存储。
     robot::framework::OutputPort<MotorFeedbackFrame> output_{}; // 反馈输出端口。

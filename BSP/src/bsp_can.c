@@ -6,6 +6,28 @@
 
 CanState can_state;
 
+// 各电机通道最后收到反馈的时间。
+volatile uint32_t bsp_motor_feedback_tick[BSP_MOTOR_FEEDBACK_COUNT] = {0U};
+
+// 记录电机反馈接收时间。
+void BSP_MotorFeedbackMark(uint8_t channel)
+{
+    if (channel < BSP_MOTOR_FEEDBACK_COUNT)
+    {
+        bsp_motor_feedback_tick[channel] = HAL_GetTick();
+    }
+}
+
+// 检查电机反馈是否超时。
+bool BSP_MotorFeedbackIsOnline(uint8_t channel, uint32_t timeout_ms)
+{
+    if (channel >= BSP_MOTOR_FEEDBACK_COUNT || bsp_motor_feedback_tick[channel] == 0U)
+    {
+        return false;
+    }
+    return (HAL_GetTick() - bsp_motor_feedback_tick[channel]) <= timeout_ms;
+}
+
 /**************内部工具函数声明***********************/
 void CAN1_Rx0Callback(FDCAN_RxHeaderTypeDef *rx_header,uint8_t *rxdata);
 //can1接收
@@ -111,11 +133,13 @@ void CAN1_Rx0Callback(FDCAN_RxHeaderTypeDef *rx_header,uint8_t *rxdata)
         {
 					whichMotor = rx_header->Identifier - 0x201;
 					DJIMotor_Update(&shooter.fricMotor[whichMotor], (rxdata[0]<<8 | rxdata[1]), (rxdata[2]<<8 | rxdata[3]),(rxdata[4]<<8|rxdata[5]),rxdata[6]);
+                    BSP_MotorFeedbackMark(whichMotor);
         }
 				break;
 		case 0x203:
 				{
 					DJIMotor_Update(&shooter.triggerMotor, (rxdata[0] << 8 | rxdata[1]), (rxdata[2] << 8 | rxdata[3]), (rxdata[4] << 8 | rxdata[5]), rxdata[6]);
+                    BSP_MotorFeedbackMark(2U);
 				}
 				break;
 		//未知信息
@@ -133,12 +157,14 @@ void CAN2_Rx0Callback(FDCAN_RxHeaderTypeDef *rx_header,uint8_t *rxdata)
 		case 0x11:
         {
 					dm4310_fbdata(&gimbal.pitchMotor,rxdata);
+                    BSP_MotorFeedbackMark(4U);
 //			Detect_Update(DeviceID_Turn_Motor1+whichMotor);	
         }
 		break;
 		case 0x205:
 			{
 					DJIMotor_Update(&gimbal.top_yawMotor,(rxdata[0] << 8 | rxdata[1]), (rxdata[2] << 8 | rxdata[3]), (rxdata[4] << 8 | rxdata[5]), rxdata[6]);
+                    BSP_MotorFeedbackMark(3U);
 			}
         break;
 		//未知信息
