@@ -93,7 +93,7 @@
           <SVCSIdString></SVCSIdString>
         </TargetCommonOption>
         <CommonProperty>
-          <UseCPPCompiler>0</UseCPPCompiler>
+          <UseCPPCompiler>1</UseCPPCompiler>
           <RVCTCodeConst>0</RVCTCodeConst>
           <RVCTZI>0</RVCTZI>
           <RVCTOtherData>0</RVCTOtherData>
@@ -340,7 +340,7 @@
               <MiscControls></MiscControls>
               <Define>USE_PWR_LDO_SUPPLY,USE_HAL_DRIVER,STM32H723xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../USB_DEVICE/App;../USB_DEVICE/Target;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Middlewares/ST/STM32_USB_Device_Library/Core/Inc;../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;..\Application\inc;..\Application\src;..\BSP\inc;..\BSP\src;..\IMU\Algorithm\inc;..\IMU\Algorithm\src;..\IMU\BMI088\inc;..\IMU\BMI088;..\IMU\inc;..\IMU\src;..\IMU\Mahony\inc;..\IMU\Mahony\src;..\math\inc;..\math\src;..\UserMiddlewares\inc;..\UserMiddlewares\src</IncludePath>
+              <IncludePath>../Core/Inc;../USB_DEVICE/App;../USB_DEVICE/Target;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Middlewares/ST/STM32_USB_Device_Library/Core/Inc;../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;..\Application\inc;..\Application\src;..\BSP\inc;..\BSP\src;..\IMU\Algorithm\inc;..\IMU\Algorithm\src;..\IMU\BMI088\inc;..\IMU\BMI088;..\IMU\inc;..\IMU\src;..\IMU\Mahony\inc;..\IMU\Mahony\src;..\math\inc;..\math\src;..\UserMiddlewares\inc;..\UserMiddlewares\src;..\Config;..\ApplicationCpp;..\Platform</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -859,6 +859,33 @@
               <FileType>1</FileType>
               <FilePath>..\UserMiddlewares\src\USER_RC.c</FilePath>
             </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>ApplicationCpp/Framework</GroupName>
+          <Files>
+            <File><FileName>PluginGraph.cpp</FileName><FileType>1</FileType><FilePath>..\ApplicationCpp\Framework\PluginGraph.cpp</FilePath></File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>ApplicationCpp/Platform</GroupName>
+          <Files>
+            <File><FileName>DebugSnapshot.cpp</FileName><FileType>1</FileType><FilePath>..\ApplicationCpp\Platform\DebugSnapshot.cpp</FilePath></File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>ApplicationCpp</GroupName>
+          <Files>
+            <File><FileName>RobotApplication.cpp</FileName><FileType>1</FileType><FilePath>..\ApplicationCpp\RobotApplication.cpp</FilePath></File>
+            <File><FileName>app_cpp_entry.cpp</FileName><FileType>1</FileType><FilePath>..\ApplicationCpp\app_cpp_entry.cpp</FilePath></File>
+            <File><FileName>ControlExecutorTask.cpp</FileName><FileType>1</FileType><FilePath>..\ApplicationCpp\ControlExecutorTask.cpp</FilePath></File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Platform/STM32</GroupName>
+          <Files>
+            <File><FileName>Stm32Clock.cpp</FileName><FileType>1</FileType><FilePath>..\Platform\STM32\Stm32Clock.cpp</FilePath></File>
+            <File><FileName>Stm32Profiler.cpp</FileName><FileType>1</FileType><FilePath>..\Platform\STM32\Stm32Profiler.cpp</FilePath></File>
           </Files>
         </Group>
         <Group>

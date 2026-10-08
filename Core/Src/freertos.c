@@ -25,6 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "app_cpp_entry.h"
 
 /* USER CODE END Includes */
 
@@ -45,6 +46,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+osThreadId PluginExecutorTaskHandle;
 
 /* USER CODE END Variables */
 osThreadId defaultTaskHandle;
@@ -191,7 +193,8 @@ void MX_FREERTOS_Init(void) {
   VisionTaskHandle = osThreadCreate(osThread(VisionTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
+  osThreadDef(PluginExecutorTask, AppCpp_ControlTask, osPriorityAboveNormal, 0, 768);
+  PluginExecutorTaskHandle = osThreadCreate(osThread(PluginExecutorTask), NULL);
   /* USER CODE END RTOS_THREADS */
 
 }
