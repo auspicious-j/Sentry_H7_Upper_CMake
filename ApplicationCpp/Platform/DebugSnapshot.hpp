@@ -5,6 +5,7 @@
 
 namespace robot::platform {
 
+// Keil Watch 可直接观察的固定调试快照；业务状态仍封装在节点对象内。
 struct RobotDebugSnapshot {
     volatile uint32_t frame_id;
     volatile uint32_t last_frame_duration_us;
@@ -21,6 +22,7 @@ struct RobotDebugSnapshot {
     volatile uint8_t reserved;
 };
 
+// volatile 防止调试观察和中断/任务更新被编译器优化掉。
 extern volatile RobotDebugSnapshot g_robot_debug;
 
 } // namespace robot::platform

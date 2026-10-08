@@ -4,6 +4,7 @@
 
 namespace robot::framework {
 
+// 在线性固定数组中查找节点；容量较小且只在启动期频繁使用。
 int PluginGraph::findNodeIndex(const PluginNode* node) const
 {
     for (uint16_t index = 0U; index < node_count_; ++index) {
@@ -14,6 +15,7 @@ int PluginGraph::findNodeIndex(const PluginNode* node) const
     return -1;
 }
 
+// 防止同一依赖边被重复注册。
 bool PluginGraph::hasEdge(const PluginNode* before, const PluginNode* after, bool delayed) const
 {
     for (uint16_t index = 0U; index < edge_count_; ++index) {
@@ -25,6 +27,7 @@ bool PluginGraph::hasEdge(const PluginNode* before, const PluginNode* after, boo
     return false;
 }
 
+// 注册节点。图冻结后禁止修改，保证运行期指针和性能 ID 稳定。
 PluginStatus PluginGraph::add(PluginNode& node)
 {
     if (frozen_) {
@@ -46,6 +49,7 @@ PluginStatus PluginGraph::add(PluginNode& node)
     return PluginStatus::Ok;
 }
 
+// 注册本周期依赖；延迟边只表达跨周期反馈，不阻塞本周期拓扑排序。
 PluginStatus PluginGraph::addDependency(PluginNode& before, PluginNode& after, bool delayed)
 {
     if (frozen_) {
@@ -68,6 +72,7 @@ PluginStatus PluginGraph::addDependency(PluginNode& before, PluginNode& after, b
     return PluginStatus::Ok;
 }
 
+// 递归展开节点内部图，但所有节点最终进入同一个执行计划。
 PluginStatus PluginGraph::composeNode(PluginNode& node)
 {
     if (node.composed_) {
@@ -111,6 +116,7 @@ PluginStatus PluginGraph::composeNode(PluginNode& node)
     return PluginStatus::Ok;
 }
 
+// 只在启动阶段调用一次：让每个节点注册自己的内部节点和边。
 PluginStatus PluginGraph::compose()
 {
     if (frozen_) {
@@ -131,6 +137,7 @@ PluginStatus PluginGraph::compose()
     return PluginStatus::Ok;
 }
 
+// 检查节点、边和 ID 的基本合法性。
 PluginStatus PluginGraph::validate() const
 {
     for (uint16_t index = 0U; index < node_count_; ++index) {
@@ -154,6 +161,7 @@ PluginStatus PluginGraph::validate() const
     return PluginStatus::Ok;
 }
 
+// 使用 Kahn 拓扑排序生成确定执行顺序；成功后冻结图结构。
 PluginStatus PluginGraph::compile()
 {
     if (frozen_) {
@@ -217,6 +225,7 @@ PluginStatus PluginGraph::compile()
     return PluginStatus::Ok;
 }
 
+// 按已编译顺序初始化所有节点。
 PluginStatus PluginGraph::configureAll()
 {
     if (!compiled_) {
@@ -231,6 +240,7 @@ PluginStatus PluginGraph::configureAll()
     return PluginStatus::Ok;
 }
 
+// 按已编译顺序切换所有节点到 Running。
 PluginStatus PluginGraph::startAll()
 {
     if (!compiled_) {
@@ -245,6 +255,7 @@ PluginStatus PluginGraph::startAll()
     return PluginStatus::Ok;
 }
 
+// 运行期只遍历执行计划，不重新排序、不分配内存。
 ProcessResult PluginGraph::processFrame(FrameContext& context, IProfiler* profiler)
 {
     if (!compiled_) {
@@ -270,6 +281,7 @@ ProcessResult PluginGraph::processFrame(FrameContext& context, IProfiler* profil
     return aggregate;
 }
 
+// 停止时反向执行，保证后置节点先停止。
 void PluginGraph::stopAll()
 {
     if (!compiled_) {

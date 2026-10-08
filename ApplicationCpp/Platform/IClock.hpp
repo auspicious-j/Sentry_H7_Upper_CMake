@@ -5,6 +5,7 @@
 
 namespace robot::platform {
 
+// 平台无关的单调时钟接口；STM32 使用 DWT，未来 Linux 可替换后端。
 class IClock {
 public:
     virtual ~IClock() = default;

@@ -11,6 +11,7 @@
 
 namespace robot::application {
 
+// 组合根：负责创建插件图、初始化服务并向外提供一帧执行入口。
 class RobotApplication {
 public:
     RobotApplication();
@@ -22,6 +23,7 @@ public:
 private:
     class HeartbeatNode;
 
+    // 当前骨架只有心跳节点；后续底盘、云台等节点从这里组装。
     robot::framework::PluginGraph graph_{};
     HeartbeatNode* heartbeat_{nullptr};
     robot::platform::stm32::Stm32Clock clock_{};

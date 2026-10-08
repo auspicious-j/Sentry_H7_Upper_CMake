@@ -4,6 +4,7 @@
 
 namespace robot::application {
 
+// 骨架阶段的无硬件节点，用来验证调度、计时和调试快照。
 class RobotApplication::HeartbeatNode final : public robot::framework::PluginNode {
 public:
     HeartbeatNode() : PluginNode(1U) {}
@@ -14,6 +15,7 @@ public:
     }
 };
 
+// 成员对象静态存在，不在运行期 new。
 RobotApplication::RobotApplication()
     : profiler_(clock_)
 {
@@ -21,6 +23,7 @@ RobotApplication::RobotApplication()
     heartbeat_ = &heartbeat_node;
 }
 
+// 启动阶段依次完成注册、展开、验证、拓扑排序、配置和启动。
 robot::framework::PluginStatus RobotApplication::initialize()
 {
     if (initialized_) {
@@ -48,6 +51,7 @@ robot::framework::PluginStatus RobotApplication::initialize()
     return status;
 }
 
+// 每次被 FreeRTOS 控制任务唤醒时执行一帧插件图。
 robot::framework::ProcessResult RobotApplication::processFrame()
 {
     if (!initialized_) {

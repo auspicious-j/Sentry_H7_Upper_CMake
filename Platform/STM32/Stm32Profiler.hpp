@@ -6,6 +6,7 @@
 
 namespace robot::platform::stm32 {
 
+// 用 STM32 单调时钟记录帧和节点耗时，并写入 Keil 可观察快照。
 class Stm32Profiler final : public robot::framework::IProfiler {
 public:
     explicit Stm32Profiler(const robot::platform::IClock& clock) : clock_(clock) {}
@@ -16,6 +17,7 @@ public:
     void endFrame(uint64_t timestamp_us) override;
 
 private:
+    // 依赖抽象时钟，便于未来替换计时后端。
     const robot::platform::IClock& clock_;
     uint64_t frame_start_us_{0U};
     uint64_t node_start_us_{0U};

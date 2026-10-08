@@ -12,12 +12,14 @@ namespace robot::framework {
 
 class PluginNode;
 
+// 一条执行依赖边。delayed=true 表示读取上一周期数据，不参与本周期拓扑排序。
 struct PluginEdge {
     PluginNode* before{nullptr};
     PluginNode* after{nullptr};
     bool delayed{false};
 };
 
+// 固定容量的有向插件图。组装完成后 compile() 生成执行顺序并冻结图结构。
 class PluginGraph {
 public:
     PluginStatus add(PluginNode& node);
@@ -45,6 +47,7 @@ private:
     int findNodeIndex(const PluginNode* node) const;
     bool hasEdge(const PluginNode* before, const PluginNode* after, bool delayed) const;
 
+    // 注册表、边表和编译后的执行顺序均为静态数组，避免运行期堆分配。
     PluginNode* nodes_[ROBOT_MAX_PLUGIN_NODES]{};
     PluginEdge edges_[ROBOT_MAX_PLUGIN_EDGES]{};
     PluginNode* execution_order_[ROBOT_MAX_PLUGIN_NODES]{};
