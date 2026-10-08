@@ -29,7 +29,7 @@ bool PluginGraph::hasEdge(const PluginNode* before, const PluginNode* after, boo
     return false;
 }
 
-// 注册节点。图冻结后禁止修改，保证运行期指针和性能 ID 稳定。
+// 注册节点
 PluginStatus PluginGraph::add(PluginNode& node)
 {
     if (frozen_) {
@@ -38,15 +38,17 @@ PluginStatus PluginGraph::add(PluginNode& node)
     if (findNodeIndex(&node) >= 0) {
         return PluginStatus::DuplicateNode;
     }
-    // index：用于检查已注册节点 ID。
+    // 检查已注册节点 ID有无重复
     for (uint16_t index = 0U; index < node_count_; ++index) {
         if (nodes_[index]->id() == node.id()) {
             return PluginStatus::DuplicateNode;
         }
     }
+    // 检查是否大于允许的最大节点数量
     if (node_count_ >= ROBOT_MAX_PLUGIN_NODES) {
         return PluginStatus::CapacityExceeded;
     }
+
     nodes_[node_count_] = &node;
     ++node_count_;
     return PluginStatus::Ok;
