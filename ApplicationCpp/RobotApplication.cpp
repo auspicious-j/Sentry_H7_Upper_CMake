@@ -33,7 +33,11 @@ robot::framework::PluginStatus RobotApplication::initialize()
     }
 
     // status：图组装和启动状态。
+    // 先注册心跳节点，再注册只读电机反馈节点。
     robot::framework::PluginStatus status = graph_.add(*heartbeat_);
+    if (status == robot::framework::PluginStatus::Ok) {
+        status = graph_.add(motor_feedback_);
+    }
     if (status == robot::framework::PluginStatus::Ok) {
         status = graph_.compile();
     }

@@ -1,9 +1,10 @@
-﻿#ifndef ROBOT_APPLICATION_HPP
+#ifndef ROBOT_APPLICATION_HPP
 #define ROBOT_APPLICATION_HPP
 
 #include "Framework/FrameContext.hpp"
 #include "Framework/PluginGraph.hpp"
 #include "Framework/PluginNode.hpp"
+#include "Nodes/Motor/MotorFeedbackNode.hpp"
 #include "Platform/IClock.hpp"
 #include "Platform/IProfiler.hpp"
 #include "../Platform/STM32/Stm32Clock.hpp"
@@ -32,6 +33,7 @@ private:
     robot::framework::PluginGraph graph_{};
     // 心跳节点指针，实际对象为静态成员。
     HeartbeatNode* heartbeat_{nullptr};
+    robot::motor::MotorFeedbackNode motor_feedback_{}; // 旧电机反馈到新端口的适配节点。
     // STM32 单调时钟。
     robot::platform::stm32::Stm32Clock clock_{};
     // STM32 性能统计器。
@@ -45,4 +47,3 @@ private:
 } // namespace robot::application
 
 #endif /* ROBOT_APPLICATION_HPP */
-
