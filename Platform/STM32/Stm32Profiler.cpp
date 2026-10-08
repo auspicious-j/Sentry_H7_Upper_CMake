@@ -1,4 +1,4 @@
-﻿#include "Stm32Profiler.hpp"
+#include "Stm32Profiler.hpp"
 
 #include "../../ApplicationCpp/Platform/DebugSnapshot.hpp"
 
@@ -8,7 +8,7 @@ namespace robot::platform::stm32 {
 void Stm32Profiler::beginFrame(uint32_t frame_id, uint64_t timestamp_us)
 {
     frame_start_us_ = timestamp_us;
-    robot::platform::g_robot_debug.frame_id = frame_id;
+    g_robot_debug.frame_id = frame_id;
 }
 
 // 节点单独读取当前时钟，测量真实节点耗时。
@@ -28,9 +28,9 @@ void Stm32Profiler::endNode()
     }
     // duration：本次节点或帧的耗时。
     const uint32_t duration = static_cast<uint32_t>(timestamp_us - node_start_us_);
-    robot::platform::g_robot_debug.last_node_duration_us = duration;
-    if (duration > robot::platform::g_robot_debug.max_node_duration_us) {
-        robot::platform::g_robot_debug.max_node_duration_us = duration;
+    g_robot_debug.last_node_duration_us = duration;
+    if (duration > g_robot_debug.max_node_duration_us) {
+        g_robot_debug.max_node_duration_us = duration;
     }
     current_node_id_ = robot::framework::kInvalidPluginId;
 }
@@ -42,9 +42,9 @@ void Stm32Profiler::endFrame(uint64_t timestamp_us)
         return;
     }
     const uint32_t duration = static_cast<uint32_t>(timestamp_us - frame_start_us_);
-    robot::platform::g_robot_debug.last_frame_duration_us = duration;
-    if (duration > robot::platform::g_robot_debug.max_frame_duration_us) {
-        robot::platform::g_robot_debug.max_frame_duration_us = duration;
+    g_robot_debug.last_frame_duration_us = duration;
+    if (duration > g_robot_debug.max_frame_duration_us) {
+        g_robot_debug.max_frame_duration_us = duration;
     }
 }
 

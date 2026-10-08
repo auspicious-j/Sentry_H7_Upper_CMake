@@ -1,4 +1,4 @@
-﻿#include "RobotApplication.hpp"
+#include "RobotApplication.hpp"
 
 #include "Platform/DebugSnapshot.hpp"
 
@@ -44,11 +44,11 @@ robot::framework::PluginStatus RobotApplication::initialize()
         status = graph_.startAll();
     }
 
-    robot::platform::g_robot_debug.graph_node_count = graph_.nodeCount();
-    robot::platform::g_robot_debug.graph_edge_count = graph_.edgeCount();
-    robot::platform::g_robot_debug.init_error = static_cast<uint32_t>(status);
-    robot::platform::g_robot_debug.initialized = (status == robot::framework::PluginStatus::Ok) ? 1U : 0U;
-    robot::platform::g_robot_debug.running = (status == robot::framework::PluginStatus::Ok) ? 1U : 0U;
+    g_robot_debug.graph_node_count = graph_.nodeCount();
+    g_robot_debug.graph_edge_count = graph_.edgeCount();
+    g_robot_debug.init_error = static_cast<uint32_t>(status);
+    g_robot_debug.initialized = (status == robot::framework::PluginStatus::Ok) ? 1U : 0U;
+    g_robot_debug.running = (status == robot::framework::PluginStatus::Ok) ? 1U : 0U;
 
     initialized_ = (status == robot::framework::PluginStatus::Ok);
     return status;
@@ -68,7 +68,7 @@ robot::framework::ProcessResult RobotApplication::processFrame()
     const robot::framework::ProcessResult result = graph_.processFrame(frame_, &profiler_);
     frame_.timestamp_us = clock_.nowUs();
     profiler_.endFrame(frame_.timestamp_us);
-    robot::platform::g_robot_debug.last_result = static_cast<uint8_t>(result);
+    g_robot_debug.last_result = static_cast<uint8_t>(result);
     return result;
 }
 

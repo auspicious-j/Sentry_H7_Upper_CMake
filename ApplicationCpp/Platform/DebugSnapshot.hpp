@@ -1,4 +1,4 @@
-﻿#ifndef ROBOT_DEBUG_SNAPSHOT_HPP
+#ifndef ROBOT_DEBUG_SNAPSHOT_HPP
 #define ROBOT_DEBUG_SNAPSHOT_HPP
 
 #include <cstdint>
@@ -22,9 +22,15 @@ struct RobotDebugSnapshot {
     volatile uint8_t reserved; // 保留字节。
 };
 
-// volatile 防止调试观察和中断/任务更新被编译器优化掉。
-extern volatile RobotDebugSnapshot g_robot_debug;
-
 } // namespace robot::platform
+
+// 使用 C 链接名，方便 Keil Watch 直接通过 g_robot_debug 查找。
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern volatile robot::platform::RobotDebugSnapshot g_robot_debug;
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ROBOT_DEBUG_SNAPSHOT_HPP */
