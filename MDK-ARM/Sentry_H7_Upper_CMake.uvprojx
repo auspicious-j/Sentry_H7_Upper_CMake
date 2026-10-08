@@ -864,28 +864,28 @@
         <Group>
           <GroupName>ApplicationCpp/Framework</GroupName>
           <Files>
-            <File><FileName>PluginGraph.cpp</FileName><FileType>1</FileType><FilePath>..\ApplicationCpp\Framework\PluginGraph.cpp</FilePath></File>
+            <File><FileName>PluginGraph.cpp</FileName><FileType>8</FileType><FilePath>..\ApplicationCpp\Framework\PluginGraph.cpp</FilePath></File>
           </Files>
         </Group>
         <Group>
           <GroupName>ApplicationCpp/Platform</GroupName>
           <Files>
-            <File><FileName>DebugSnapshot.cpp</FileName><FileType>1</FileType><FilePath>..\ApplicationCpp\Platform\DebugSnapshot.cpp</FilePath></File>
+            <File><FileName>DebugSnapshot.cpp</FileName><FileType>8</FileType><FilePath>..\ApplicationCpp\Platform\DebugSnapshot.cpp</FilePath></File>
           </Files>
         </Group>
         <Group>
           <GroupName>ApplicationCpp</GroupName>
           <Files>
-            <File><FileName>RobotApplication.cpp</FileName><FileType>1</FileType><FilePath>..\ApplicationCpp\RobotApplication.cpp</FilePath></File>
-            <File><FileName>app_cpp_entry.cpp</FileName><FileType>1</FileType><FilePath>..\ApplicationCpp\app_cpp_entry.cpp</FilePath></File>
-            <File><FileName>ControlExecutorTask.cpp</FileName><FileType>1</FileType><FilePath>..\ApplicationCpp\ControlExecutorTask.cpp</FilePath></File>
+            <File><FileName>RobotApplication.cpp</FileName><FileType>8</FileType><FilePath>..\ApplicationCpp\RobotApplication.cpp</FilePath></File>
+            <File><FileName>app_cpp_entry.cpp</FileName><FileType>8</FileType><FilePath>..\ApplicationCpp\app_cpp_entry.cpp</FilePath></File>
+            <File><FileName>ControlExecutorTask.cpp</FileName><FileType>8</FileType><FilePath>..\ApplicationCpp\ControlExecutorTask.cpp</FilePath></File>
           </Files>
         </Group>
         <Group>
           <GroupName>Platform/STM32</GroupName>
           <Files>
-            <File><FileName>Stm32Clock.cpp</FileName><FileType>1</FileType><FilePath>..\Platform\STM32\Stm32Clock.cpp</FilePath></File>
-            <File><FileName>Stm32Profiler.cpp</FileName><FileType>1</FileType><FilePath>..\Platform\STM32\Stm32Profiler.cpp</FilePath></File>
+            <File><FileName>Stm32Clock.cpp</FileName><FileType>8</FileType><FilePath>..\Platform\STM32\Stm32Clock.cpp</FilePath></File>
+            <File><FileName>Stm32Profiler.cpp</FileName><FileType>8</FileType><FilePath>..\Platform\STM32\Stm32Profiler.cpp</FilePath></File>
           </Files>
         </Group>
         <Group>
