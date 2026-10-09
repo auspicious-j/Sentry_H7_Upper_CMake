@@ -81,6 +81,10 @@ struct NodeExecutionStats {
     uint32_t blocked_count{0U}; // 依赖或运行状态阻塞次数。
     NodeFrameState frame_state{NodeFrameState::Pending}; // 最近帧调度状态。
     uint16_t frame_order{0xFFFFU}; // 本帧 process 调用序号，未执行为 0xFFFF。
+    uint32_t enter_count{0U}; // 累积进入通知次数。
+    uint32_t exit_count{0U}; // 累积退出通知次数。
+    uint32_t plan_change_count{0U}; // 保持激活时的计划切换通知次数。
+    bool active{false}; // 帧边界锁存激活状态，不代表输入已就绪。
 };
 
 } // namespace robot::framework

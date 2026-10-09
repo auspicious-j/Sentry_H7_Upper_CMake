@@ -24,12 +24,18 @@ struct BranchNodeDebugSnapshot {
     uint32_t blocked_count{0U}; // 输入或运行状态阻塞次数。
     uint8_t frame_state{0U}; // NodeFrameState 数值。
     uint16_t frame_order{0xFFFFU}; // 本帧实际执行序号，未执行为65535。
+    uint32_t enter_count{0U}; // 节点进入通知次数。
+    uint32_t exit_count{0U}; // 节点退出通知次数。
+    uint32_t plan_change_count{0U}; // 保持激活时计划切换通知次数。
+    uint8_t active{0U}; // 帧边界激活状态，不等同于输入有效。
 };
 
 // 一条路线的两个内部节点及末端结果。
 struct BranchRouteDebugSnapshot {
     BranchNodeDebugSnapshot first{}; // 第一级状态。
     BranchNodeDebugSnapshot second{}; // 第二级状态。
+    uint32_t first_runs_since_enter{0U}; // 第一级本次激活执行次数。
+    uint32_t second_runs_since_enter{0U}; // 第二级本次激活执行次数。
     float value{0.0f}; // 本帧有效结果，无效时置 0。
     uint8_t valid{0U}; // 路线末端是否有本帧结果。
 };

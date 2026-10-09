@@ -8,6 +8,7 @@
 #include "PluginTypes.hpp"
 #include "IProfiler.hpp"
 #include "BranchSelector.hpp"
+#include "NodeTransitionContext.hpp"
 
 namespace robot::framework {
 
@@ -102,6 +103,10 @@ private:
     void latchPlan();
     // slot：节点下标；检查自身及祖先的路线条件。
     bool branchActive(uint16_t slot) const;
+    // slot：节点下标；自身与祖先都必须处于可运行状态。
+    bool hierarchyRunnable(uint16_t slot) const;
+    // context/previous_plan：帧边界通知，先退出再进入/计划变化。
+    void updateTransitions(const FrameContext& context, uint16_t previous_plan);
     // slot：节点下标；检查所有本帧输入依赖。
     bool dependenciesReady(uint16_t slot) const;
     int findNodeIndex(const PluginNode* node) const;
@@ -137,6 +142,9 @@ private:
     bool composed_{false};
     // 是否生成执行计划。
     bool compiled_{false};
+    bool frame_in_progress_{false}; // 防止回调递归执行本图。
+    bool lifecycle_in_progress_{false}; // 防止启停或退出通知递归。
+    NodeTransitionContext last_transition_{}; // 最近帧上下文，供停止通知使用。
     // 是否禁止继续修改图。
     bool frozen_{false};
 };

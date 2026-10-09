@@ -356,35 +356,41 @@ PluginStatus PluginGraph::compilePlan(uint16_t plan)
     return PluginStatus::Ok;
 }
 
-// 固定按计划 0 初始化一次，计划切换不重新初始化。
+// 固定按计划 0 初始化一次，禁止在帧或生命周期回调中递归调用。
 PluginStatus PluginGraph::configureAll()
 {
-    if (!compiled_) {
+    if (!compiled_ || frame_in_progress_ || lifecycle_in_progress_) {
         return PluginStatus::InvalidState;
     }
+    lifecycle_in_progress_ = true;
+    // index：计划0的配置顺序位置。
     for (uint16_t index = 0U; index < execution_count_; ++index) {
-        // status：当前节点配置结果。
-        PluginStatus status = nodes_[execution_slots_[0U][index]]->configure();
+        const PluginStatus status = nodes_[execution_slots_[0U][index]]->configure(); // 本节点结果。
         if (status != PluginStatus::Ok) {
+            lifecycle_in_progress_ = false;
             return status;
         }
     }
+    lifecycle_in_progress_ = false;
     return PluginStatus::Ok;
 }
 
-// 固定按计划 0 启动一次，所有计划共用节点实例。
+// 固定按计划 0 启动；真正的首次进入通知发生在下一帧边界。
 PluginStatus PluginGraph::startAll()
 {
-    if (!compiled_) {
+    if (!compiled_ || frame_in_progress_ || lifecycle_in_progress_) {
         return PluginStatus::InvalidState;
     }
+    lifecycle_in_progress_ = true;
+    // index：计划0的启动顺序位置。
     for (uint16_t index = 0U; index < execution_count_; ++index) {
-        // status：当前节点启动结果。
-        PluginStatus status = nodes_[execution_slots_[0U][index]]->start();
+        const PluginStatus status = nodes_[execution_slots_[0U][index]]->start(); // 本节点结果。
         if (status != PluginStatus::Ok) {
+            lifecycle_in_progress_ = false;
             return status;
         }
     }
+    lifecycle_in_progress_ = false;
     return PluginStatus::Ok;
 }
 
@@ -400,6 +406,60 @@ bool PluginGraph::branchActive(uint16_t slot) const
         current = condition.parent;
     }
     return true;
+}
+
+// slot：节点下标；容器禁用或故障也阻止其内部节点执行。
+bool PluginGraph::hierarchyRunnable(uint16_t slot) const
+{
+    int current = static_cast<int>(slot); // 沿对象组合关系向上检查。
+    while (current >= 0) {
+        const PluginState state = nodes_[current]->state(); // 当前层运行状态。
+        if (state != PluginState::Running && state != PluginState::Degraded) {
+            return false;
+        }
+        current = conditions_[current].parent;
+    }
+    return true;
+}
+
+// context/previous_plan：当前帧及上一计划；通知完成后才进入业务计算。
+void PluginGraph::updateTransitions(const FrameContext& context, uint16_t previous_plan)
+{
+    bool next_active[ROBOT_MAX_PLUGIN_NODES]{}; // 本帧锁存激活集合，不随回调请求变化。
+    last_transition_.frame_id = context.frame_id;
+    last_transition_.timestamp_us = context.timestamp_us;
+    last_transition_.previous_plan = previous_plan;
+    last_transition_.current_plan = active_plan_;
+    last_transition_.plan_generation = plan_generation_;
+    last_transition_.stopping = false;
+    // slot：注册下标；输入短暂缺失不导致反复进入/退出。
+    for (uint16_t slot = 0U; slot < node_count_; ++slot) {
+        next_active[slot] = branchActive(slot) && hierarchyRunnable(slot);
+    }
+    // index：上一执行计划逆序；先完成全部退出通知。
+    for (uint16_t index = execution_count_; index > 0U; --index) {
+        const uint16_t slot = execution_slots_[previous_plan][index - 1U]; // 退出检查下标。
+        NodeExecutionStats& stats = stats_[slot]; // 节点通知统计。
+        if (stats.active && !next_active[slot]) {
+            stats.active = false;
+            ++stats.exit_count;
+            nodes_[slot]->onExit(last_transition_);
+        }
+    }
+    // index：当前计划顺序；新激活只进入，继续激活者才收到计划变化。
+    for (uint16_t index = 0U; index < execution_count_; ++index) {
+        const uint16_t slot = execution_slots_[active_plan_][index]; // 通知检查下标。
+        NodeExecutionStats& stats = stats_[slot]; // 节点通知统计。
+        if (!next_active[slot]) { continue; }
+        if (!stats.active) {
+            stats.active = true;
+            ++stats.enter_count;
+            nodes_[slot]->onEnter(last_transition_);
+        } else if (previous_plan != active_plan_) {
+            ++stats.plan_change_count;
+            nodes_[slot]->onPlanChanged(last_transition_);
+        }
+    }
 }
 
 // slot：消费节点；分支汇合不忽略故障、未启动或无数据。
@@ -434,9 +494,11 @@ bool PluginGraph::dependenciesReady(uint16_t slot) const
 ProcessResult PluginGraph::processFrame(FrameContext& context, IProfiler* profiler)
 {
     (void)profiler; // 本板块不改变现有探针实现。
-    if (!compiled_) {
+    if (!compiled_ || frame_in_progress_ || lifecycle_in_progress_) {
         return ProcessResult::Fault;
     }
+    frame_in_progress_ = true;
+    const uint16_t previous_plan = active_plan_; // 本帧切换前计划。
     latchPlan();
     // index：选择器下标；所有请求在第一节点执行前统一锁存。
     for (uint16_t index = 0U; index < selector_count_; ++index) {
@@ -447,6 +509,7 @@ ProcessResult PluginGraph::processFrame(FrameContext& context, IProfiler* profil
         stats_[index].frame_state = NodeFrameState::Pending;
         stats_[index].frame_order = 0xFFFFU;
     }
+    updateTransitions(context, previous_plan);
     ProcessResult aggregate = ProcessResult::Ok; // 本帧汇总结果。
     uint16_t execution_ordinal = 0U; // 本帧实际 process 调用序号。
     // index：已编译执行顺序下标。
@@ -460,7 +523,7 @@ ProcessResult PluginGraph::processFrame(FrameContext& context, IProfiler* profil
             node.onSkipped(context);
             continue;
         }
-        if (node.state() != PluginState::Running && node.state() != PluginState::Degraded) {
+        if (!stats.active || !hierarchyRunnable(slot)) {
             stats.frame_state = NodeFrameState::SkippedState;
             ++stats.blocked_count;
             node.onSkipped(context);
@@ -501,18 +564,37 @@ ProcessResult PluginGraph::processFrame(FrameContext& context, IProfiler* profil
             aggregate = ProcessResult::OutputHeld;
         }
     }
+    frame_in_progress_ = false;
     return aggregate;
 }
 
-// 按初始化计划 0 的逆序停止，不受最后一帧计划影响。
+// 帧外停止：先退出当前激活节点，再按初始化计划0逆序停止全部节点。
 void PluginGraph::stopAll()
 {
-    if (!compiled_) {
+    if (!compiled_ || frame_in_progress_ || lifecycle_in_progress_) {
         return;
     }
+    lifecycle_in_progress_ = true;
+    NodeTransitionContext transition = last_transition_; // 停止沿用最近帧时间。
+    transition.previous_plan = active_plan_;
+    transition.current_plan = active_plan_;
+    transition.stopping = true;
+    // index：当前计划逆序，退出只通知一次。
     for (uint16_t index = execution_count_; index > 0U; --index) {
-        nodes_[execution_slots_[0U][index - 1U]]->stop();
+        const uint16_t slot = execution_slots_[active_plan_][index - 1U]; // 当前节点下标。
+        NodeExecutionStats& stats = stats_[slot]; // 激活状态与统计。
+        if (stats.active) {
+            stats.active = false;
+            ++stats.exit_count;
+            nodes_[slot]->onExit(transition);
+        }
     }
+    // index：固定生命周期停止顺序。
+    for (uint16_t index = execution_count_; index > 0U; --index) {
+        PluginNode& node = *nodes_[execution_slots_[0U][index - 1U]]; // 待停止节点。
+        if (node.state() != PluginState::Stopped) { node.stop(); }
+    }
+    lifecycle_in_progress_ = false;
 }
 
 } // namespace robot::framework

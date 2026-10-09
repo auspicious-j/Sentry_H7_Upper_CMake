@@ -35,9 +35,27 @@ DemoMathNode::DemoMathNode(robot::framework::PluginId id, float scale, float off
 // source：同执行域上游信号。
 void DemoMathNode::bind(const robot::framework::FrameSignal<float>& source) { input_.bind(source); }
 
+// transition：新激活通知；展示节点自行选择重置策略。
+void DemoMathNode::onEnter(const robot::framework::NodeTransitionContext& transition)
+{
+    (void)transition;
+    runs_since_enter_ = 0U;
+}
+
+// transition：退出通知；即使整图停止也不残留有效输出。
+void DemoMathNode::onExit(const robot::framework::NodeTransitionContext& transition)
+{
+    (void)transition;
+    signal_.invalidate();
+}
+
+// 返回本次激活的计数，总执行计数由框架独立保存。
+uint32_t DemoMathNode::runsSinceEnter() const { return runs_since_enter_; }
+
 // context：当前帧；无输入时不沿用旧结果。
 robot::framework::ProcessResult DemoMathNode::process(robot::framework::FrameContext& context)
 {
+    ++runs_since_enter_;
     signal_.invalidate();
     if (!input_.validForFrame(context.frame_id)) { return robot::framework::ProcessResult::NoNewData; }
     const float result = input_.read() * scale_ + offset_; // 本次结果。

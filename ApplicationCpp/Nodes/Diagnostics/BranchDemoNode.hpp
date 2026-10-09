@@ -28,6 +28,12 @@ public:
     DemoMathNode(robot::framework::PluginId id, float scale, float offset);
     // source：组装期上游信号。
     void bind(const robot::framework::FrameSignal<float>& source);
+    // transition：进入时只重置演示计数，不修改算术参数。
+    void onEnter(const robot::framework::NodeTransitionContext& transition) override;
+    // transition：退出时使本节点输出失效。
+    void onExit(const robot::framework::NodeTransitionContext& transition) override;
+    // 返回本次激活期间的 process 调用次数。
+    uint32_t runsSinceEnter() const;
     // context：当前帧；拒绝上轮数据。
     robot::framework::ProcessResult process(robot::framework::FrameContext& context) override;
     // context：跳过帧；清除有效性。
@@ -37,6 +43,7 @@ public:
 private:
     float scale_; // 乘法系数。
     float offset_; // 加法偏置。
+    uint32_t runs_since_enter_{0U}; // 本次激活以来调用次数，仅进入时清零。
     robot::framework::InputPort<float> input_{}; // 算术输入。
     robot::framework::FrameSignal<float> signal_{}; // 结果存储。
     robot::framework::OutputPort<float> output_{}; // 结果写端。

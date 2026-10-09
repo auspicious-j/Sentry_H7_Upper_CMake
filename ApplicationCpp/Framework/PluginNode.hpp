@@ -3,6 +3,7 @@
 
 #include "PluginGraph.hpp"
 #include "PluginTypes.hpp"
+#include "NodeTransitionContext.hpp"
 
 namespace robot::framework {
 
@@ -45,6 +46,12 @@ public:
         snapshot_.health = PluginHealth::Healthy;
         return PluginStatus::Ok;
     }
+    // transition：首次/重新激活通知；默认不清空业务状态。
+    virtual void onEnter(const NodeTransitionContext& transition) { (void)transition; }
+    // transition：失去激活或整图停止通知；默认不释放静态资源。
+    virtual void onExit(const NodeTransitionContext& transition) { (void)transition; }
+    // transition：保持激活时计划改变；新激活节点只收到 onEnter。
+    virtual void onPlanChanged(const NodeTransitionContext& transition) { (void)transition; }
     // process 是节点的业务入口，由执行器按节点周期调用。
     virtual ProcessResult process(FrameContext& context) = 0;
     // context：被跳过的帧；有输出的分支节点应在重写中使输出失效。

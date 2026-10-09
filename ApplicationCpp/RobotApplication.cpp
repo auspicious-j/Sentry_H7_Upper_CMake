@@ -168,6 +168,10 @@ void RobotApplication::updateBranchDebug()
             destination.blocked_count = stats->blocked_count;
             destination.frame_state = static_cast<uint8_t>(stats->frame_state);
             destination.frame_order = stats->frame_order;
+            destination.enter_count = stats->enter_count;
+            destination.exit_count = stats->exit_count;
+            destination.plan_change_count = stats->plan_change_count;
+            destination.active = stats->active ? 1U : 0U;
         }
     };
     const auto& selector = branch_demo_.selector(); // 本帧锁存选择状态。
@@ -191,6 +195,8 @@ void RobotApplication::updateBranchDebug()
         const bool route_valid = signal.valid() && signal.frameId() == frame_.frame_id; // 本帧有效性。
         copy_stats(g_robot_debug.branch.routes[route_index].first, route.first());
         copy_stats(g_robot_debug.branch.routes[route_index].second, route.second());
+        g_robot_debug.branch.routes[route_index].first_runs_since_enter = route.first().runsSinceEnter();
+        g_robot_debug.branch.routes[route_index].second_runs_since_enter = route.second().runsSinceEnter();
         g_robot_debug.branch.routes[route_index].valid = route_valid ? 1U : 0U;
         g_robot_debug.branch.routes[route_index].value = route_valid ? signal.read() : 0.0f;
     }
@@ -211,6 +217,10 @@ void RobotApplication::updatePlanDebug()
             destination.blocked_count = stats->blocked_count;
             destination.frame_state = static_cast<uint8_t>(stats->frame_state);
             destination.frame_order = stats->frame_order;
+            destination.enter_count = stats->enter_count;
+            destination.exit_count = stats->exit_count;
+            destination.plan_change_count = stats->plan_change_count;
+            destination.active = stats->active ? 1U : 0U;
         }
     };
     g_robot_debug.plan.active_plan = graph_.activePlan();
