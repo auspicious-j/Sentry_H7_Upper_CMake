@@ -34,7 +34,13 @@ robot::framework::PluginStatus RobotApplication::initialize()
 
     // status：图组装和启动状态。
     // 先注册心跳节点，再注册只读电机反馈节点。
-    robot::framework::PluginStatus status = graph_.add(*heartbeat_);
+    robot::framework::PluginStatus status = robot::framework::PluginStatus::Ok;
+#if ROBOT_ENABLE_PLAN_DEMO
+    status = graph_.setPlanCount(2U);
+#endif
+    if (status == robot::framework::PluginStatus::Ok) {
+        status = graph_.add(*heartbeat_);
+    }
     if (status == robot::framework::PluginStatus::Ok) {
         status = graph_.add(motor_feedback_);
     }
@@ -58,6 +64,11 @@ robot::framework::PluginStatus RobotApplication::initialize()
         status = graph_.add(branch_demo_);
     }
 #endif
+#if ROBOT_ENABLE_PLAN_DEMO
+    if (status == robot::framework::PluginStatus::Ok) {
+        status = graph_.add(plan_demo_);
+    }
+#endif
     if (status == robot::framework::PluginStatus::Ok) {
         status = graph_.compile();
     }
@@ -71,6 +82,8 @@ robot::framework::PluginStatus RobotApplication::initialize()
     g_robot_debug.graph_node_count = graph_.nodeCount();
     g_robot_debug.graph_edge_count = graph_.edgeCount();
     g_robot_debug.init_error = static_cast<uint32_t>(status);
+    g_robot_debug.plan.plan_count = graph_.planCount();
+    g_robot_debug.plan.failed_plan = graph_.failedPlan();
     g_robot_debug.initialized = (status == robot::framework::PluginStatus::Ok) ? 1U : 0U;
     g_robot_debug.running = (status == robot::framework::PluginStatus::Ok) ? 1U : 0U;
 
@@ -92,6 +105,12 @@ robot::framework::ProcessResult RobotApplication::processFrame()
         ++g_robot_debug.branch.rejected_frames;
     }
 #endif
+#if ROBOT_ENABLE_PLAN_DEMO
+    const uint32_t requested_plan = g_robot_debug.plan.requested_plan; // 每帧只采样一次请求。
+    if (!graph_.requestPlan(requested_plan)) {
+        ++g_robot_debug.plan.rejected_frames;
+    }
+#endif
     frame_.frame_id++;
     frame_.timestamp_us = clock_.nowUs();
     profiler_.beginFrame(frame_.frame_id, frame_.timestamp_us);
@@ -102,6 +121,9 @@ robot::framework::ProcessResult RobotApplication::processFrame()
 #endif
 #if ROBOT_ENABLE_BRANCH_DEMO
     updateBranchDebug();
+#endif
+#if ROBOT_ENABLE_PLAN_DEMO
+    updatePlanDebug();
 #endif
     frame_.timestamp_us = clock_.nowUs();
     profiler_.endFrame(frame_.timestamp_us);
@@ -145,6 +167,7 @@ void RobotApplication::updateBranchDebug()
             destination.branch_skip_count = stats->branch_skip_count;
             destination.blocked_count = stats->blocked_count;
             destination.frame_state = static_cast<uint8_t>(stats->frame_state);
+            destination.frame_order = stats->frame_order;
         }
     };
     const auto& selector = branch_demo_.selector(); // 本帧锁存选择状态。
@@ -171,6 +194,33 @@ void RobotApplication::updateBranchDebug()
         g_robot_debug.branch.routes[route_index].valid = route_valid ? 1U : 0U;
         g_robot_debug.branch.routes[route_index].value = route_valid ? signal.read() : 0.0f;
     }
+}
+#endif
+
+#if ROBOT_ENABLE_PLAN_DEMO
+// 记录当前计划及本帧A/B顺序；不覆盖用户的 requested_plan。
+void RobotApplication::updatePlanDebug()
+{
+    // copy_stats：读取 node 的统计，复制给 destination。
+    const auto copy_stats = [this](volatile robot::platform::BranchNodeDebugSnapshot& destination,
+                                  const robot::framework::PluginNode& node) {
+        const auto* stats = graph_.executionStats(node); // 节点执行记录。
+        if (stats != nullptr) {
+            destination.execution_count = stats->execution_count;
+            destination.branch_skip_count = stats->branch_skip_count;
+            destination.blocked_count = stats->blocked_count;
+            destination.frame_state = static_cast<uint8_t>(stats->frame_state);
+            destination.frame_order = stats->frame_order;
+        }
+    };
+    g_robot_debug.plan.active_plan = graph_.activePlan();
+    g_robot_debug.plan.plan_count = graph_.planCount();
+    g_robot_debug.plan.failed_plan = graph_.failedPlan();
+    g_robot_debug.plan.switch_count = graph_.planSwitchCount();
+    g_robot_debug.plan.generation = graph_.planGeneration();
+    g_robot_debug.plan.frame_id = frame_.frame_id;
+    copy_stats(g_robot_debug.plan.a, plan_demo_.a());
+    copy_stats(g_robot_debug.plan.b, plan_demo_.b());
 }
 #endif
 

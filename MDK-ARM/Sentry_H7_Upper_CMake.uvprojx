@@ -972,6 +972,16 @@
           </Files>
         </Group>
         <Group>
+          <GroupName>ApplicationCpp/Nodes/ExecutionPlanDemo</GroupName>
+          <Files>
+            <File>
+              <FileName>ExecutionPlanDemoNode.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\ApplicationCpp\Nodes\Diagnostics\ExecutionPlanDemoNode.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
           <GroupName>::CMSIS</GroupName>
         </Group>
       </Groups>

@@ -16,17 +16,63 @@ int PluginGraph::findNodeIndex(const PluginNode* node) const
     return -1;
 }
 
-// 防止同一依赖边被重复注册。
-bool PluginGraph::hasEdge(const PluginNode* before, const PluginNode* after, bool delayed) const
+// before/after/delayed/plan：寻找在同一计划中重叠的依赖声明。
+int PluginGraph::findOverlappingEdge(const PluginNode* before, const PluginNode* after,
+                                    bool delayed, uint16_t plan) const
 {
+    // index：依赖边下标。
     for (uint16_t index = 0U; index < edge_count_; ++index) {
-        // edge：当前检查的依赖边。
-        const PluginEdge& edge = edges_[index];
-        if (edge.before == before && edge.after == after && edge.delayed == delayed) {
-            return true;
+        const PluginEdge& edge = edges_[index]; // 当前已有边。
+        const bool overlap = edge.plan_id == kAllExecutionPlans || plan == kAllExecutionPlans
+            || edge.plan_id == plan; // 作用计划是否相交。
+        if (edge.before == before && edge.after == after && edge.delayed == delayed && overlap) {
+            return static_cast<int>(index);
         }
     }
-    return false;
+    return -1;
+}
+
+// edge/plan：普通边适用于全部计划，专属边只属于对应计划。
+bool PluginGraph::edgeApplies(const PluginEdge& edge, uint16_t plan)
+{
+    return edge.plan_id == kAllExecutionPlans || edge.plan_id == plan;
+}
+
+// count：根执行器全局计划数，不能运行时改变。
+PluginStatus PluginGraph::setPlanCount(uint16_t count)
+{
+    if (frozen_) { return PluginStatus::Frozen; }
+    if (compile_attempted_) { return PluginStatus::InvalidState; }
+    if (count == 0U || count > ROBOT_MAX_EXECUTION_PLANS) {
+        return PluginStatus::ConfigurationFault;
+    }
+    plan_count_ = count;
+    return PluginStatus::Ok;
+}
+
+// before/after/plan：专属计划依赖；其存在性在子图展开后检查。
+PluginStatus PluginGraph::addPlanDependency(PluginNode& before, PluginNode& after, uint16_t plan, bool delayed)
+{
+    if (plan >= ROBOT_MAX_EXECUTION_PLANS) { return PluginStatus::ConfigurationFault; }
+    return addEdge(before, after, delayed, false, plan);
+}
+
+// plan：执行任务提交的请求；不在这里改变当前执行顺序。
+bool PluginGraph::requestPlan(uint32_t plan)
+{
+    if (!compiled_ || plan >= plan_count_) { return false; }
+    requested_plan_ = static_cast<uint16_t>(plan);
+    return true;
+}
+
+// 本帧开始前锁存，重复请求同一计划不计为切换。
+void PluginGraph::latchPlan()
+{
+    if (active_plan_ != requested_plan_) {
+        active_plan_ = requested_plan_;
+        ++plan_switch_count_;
+        ++plan_generation_;
+    }
 }
 
 // 注册节点
@@ -92,7 +138,8 @@ const NodeExecutionStats* PluginGraph::executionStats(const PluginNode& node) co
 }
 
 // before/after：端点；标志决定本帧依赖或可跳过汇合。
-PluginStatus PluginGraph::addEdge(PluginNode& before, PluginNode& after, bool delayed, bool allow_branch_skip)
+PluginStatus PluginGraph::addEdge(PluginNode& before, PluginNode& after, bool delayed,
+                                 bool allow_branch_skip, uint16_t plan)
 {
     if (frozen_) {
         return PluginStatus::Frozen;
@@ -102,13 +149,18 @@ PluginStatus PluginGraph::addEdge(PluginNode& before, PluginNode& after, bool de
     if (&before == &after && !delayed) {
         return PluginStatus::CycleDetected;
     }
-    if (hasEdge(&before, &after, delayed)) {
-        return PluginStatus::DuplicateEdge;
+    const int duplicate = findOverlappingEdge(&before, &after, delayed, plan); // 重叠边位置。
+    if (duplicate >= 0) {
+        const PluginEdge& edge = edges_[duplicate]; // 已有声明。
+        // 不允许把计划专属边静默当成全部计划边，或混用汇合语义。
+        return edge.plan_id == plan && edge.allow_branch_skip == allow_branch_skip
+            ? PluginStatus::DuplicateEdge : PluginStatus::ConfigurationFault;
     }
     if (edge_count_ >= ROBOT_MAX_PLUGIN_EDGES) {
         return PluginStatus::CapacityExceeded;
     }
     edges_[edge_count_] = PluginEdge{&before, &after, delayed, allow_branch_skip};
+    edges_[edge_count_].plan_id = plan;
     ++edge_count_;
     return PluginStatus::Ok;
 }
@@ -159,7 +211,7 @@ PluginStatus PluginGraph::composeNode(PluginNode& node)
         if (edge == nullptr) {
             return PluginStatus::ConfigurationFault;
         }
-        status = addEdge(*edge->before, *edge->after, edge->delayed, edge->allow_branch_skip);
+        status = addEdge(*edge->before, *edge->after, edge->delayed, edge->allow_branch_skip, edge->plan_id);
         if (status != PluginStatus::Ok && status != PluginStatus::DuplicateEdge) {
             return status;
         }
@@ -212,111 +264,99 @@ PluginStatus PluginGraph::validate() const
             findNodeIndex(edge.before) < 0 || findNodeIndex(edge.after) < 0) {
             return PluginStatus::MissingNode;
         }
+        if (edge.plan_id != kAllExecutionPlans && edge.plan_id >= plan_count_) {
+            return PluginStatus::ConfigurationFault;
+        }
     }
     return PluginStatus::Ok;
 }
 
-// 使用 Kahn 拓扑排序生成确定执行顺序；成功后冻结图结构。
+// 所有计划都成功才冻结运行；失败对象不能使用部分编译结果。
 PluginStatus PluginGraph::compile()
 {
-    if (frozen_) {
-        return PluginStatus::Frozen;
-    }
+    if (frozen_) { return PluginStatus::Frozen; }
+    if (compile_attempted_) { return compile_status_; }
+    compile_attempted_ = true;
+    compile_status_ = compose();
+    if (compile_status_ != PluginStatus::Ok) { return compile_status_; }
+    compile_status_ = validate();
+    if (compile_status_ != PluginStatus::Ok) { return compile_status_; }
 
-    PluginStatus status = compose();
-    if (status != PluginStatus::Ok) {
-        return status;
-    }
-    status = validate();
-    if (status != PluginStatus::Ok) {
-        return status;
-    }
-
-    // indegree：每个节点尚未满足的前置依赖数量。
-    uint16_t indegree[ROBOT_MAX_PLUGIN_NODES]{};
     selector_count_ = 0U;
-    // slot：展开图下标；收集选择器并再次验证分支条件。
+    // slot：展开图下标，收集去重选择器。
     for (uint16_t slot = 0U; slot < node_count_; ++slot) {
-        const BranchCondition& condition = conditions_[slot]; // 本节点显式条件。
-        if (condition.selector == nullptr) {
-            continue;
-        }
+        const BranchCondition& condition = conditions_[slot]; // 显式分支条件。
+        if (condition.selector == nullptr) { continue; }
         if (!condition.selector->configured() || !condition.selector->contains(condition.route)) {
-            return PluginStatus::ConfigurationFault;
+            compile_status_ = PluginStatus::ConfigurationFault;
+            return compile_status_;
         }
-        bool found = false; // 是否已收集此选择器。
-        // index：去重表下标。
+        bool found = false; // 是否已收集。
+        // index：去重表位置。
         for (uint16_t index = 0U; index < selector_count_; ++index) {
             found = found || selectors_[index] == condition.selector;
         }
-        if (!found) {
-            selectors_[selector_count_++] = condition.selector;
-        }
+        if (!found) { selectors_[selector_count_++] = condition.selector; }
     }
-    // index：依赖边下标；缓存端点，避免每帧反复查找指针。
+    // index：依赖边下标，缓存端点。
     for (uint16_t index = 0U; index < edge_count_; ++index) {
         edges_[index].before_slot = static_cast<uint16_t>(findNodeIndex(edges_[index].before));
         edges_[index].after_slot = static_cast<uint16_t>(findNodeIndex(edges_[index].after));
     }
-    // selected：节点是否已经加入执行顺序。
-    bool selected[ROBOT_MAX_PLUGIN_NODES]{};
-    for (uint16_t edge_index = 0U; edge_index < edge_count_; ++edge_index) {
-        // edge：当前待分析的依赖边。
-        const PluginEdge& edge = edges_[edge_index];
-        if (!edge.delayed) {
-            // after_index：边终点在节点数组中的位置。
-            const int after_index = findNodeIndex(edge.after);
-            if (after_index < 0) {
-                return PluginStatus::MissingNode;
-            }
-            ++indegree[static_cast<uint16_t>(after_index)];
-        }
-    }
-
-    execution_count_ = 0U;
-    while (execution_count_ < node_count_) {
-        // ready_index：当前可执行节点的位置。
-        int ready_index = -1;
-        for (uint16_t index = 0U; index < node_count_; ++index) {
-            if (!selected[index] && indegree[index] == 0U) {
-                ready_index = static_cast<int>(index);
-                break;
-            }
-        }
-        if (ready_index < 0) {
+    // plan：逐个验证的计划编号。
+    for (uint16_t plan = 0U; plan < plan_count_; ++plan) {
+        compile_status_ = compilePlan(plan);
+        if (compile_status_ != PluginStatus::Ok) {
+            failed_plan_ = plan;
             execution_count_ = 0U;
-            return PluginStatus::CycleDetected;
-        }
-
-        // ready_node：当前选中的节点。
-        PluginNode* ready_node = nodes_[static_cast<uint16_t>(ready_index)];
-        selected[static_cast<uint16_t>(ready_index)] = true;
-        execution_order_[execution_count_] = ready_node;
-        execution_slots_[execution_count_] = static_cast<uint16_t>(ready_index);
-        ++execution_count_;
-
-        for (uint16_t edge_index = 0U; edge_index < edge_count_; ++edge_index) {
-            const PluginEdge& edge = edges_[edge_index];
-            if (!edge.delayed && edge.before == ready_node) {
-                // after_index：后继节点的位置。
-                const int after_index = findNodeIndex(edge.after);
-                if (after_index >= 0 && indegree[static_cast<uint16_t>(after_index)] > 0U) {
-                    --indegree[static_cast<uint16_t>(after_index)];
-                }
-            }
+            return compile_status_;
         }
     }
-
-    // index：展开图下标；一并冻结每个内部组装图。
+    // index：展开图下标，冻结所有子图。
     for (uint16_t index = 0U; index < node_count_; ++index) {
         nodes_[index]->children().frozen_ = true;
     }
+    execution_count_ = node_count_;
     compiled_ = true;
     frozen_ = true;
+    return compile_status_;
+}
+
+// plan：本次排序的计划；只考虑其有效边，允许不同计划采用相反顺序。
+PluginStatus PluginGraph::compilePlan(uint16_t plan)
+{
+    uint16_t indegree[ROBOT_MAX_PLUGIN_NODES]{}; // 剩余前驱数。
+    bool selected[ROBOT_MAX_PLUGIN_NODES]{}; // 是否已加入本计划。
+    uint16_t count = 0U; // 本计划已排序数量。
+    // index：依赖边下标。
+    for (uint16_t index = 0U; index < edge_count_; ++index) {
+        const PluginEdge& edge = edges_[index]; // 当前依赖。
+        if (!edge.delayed && edgeApplies(edge, plan)) { ++indegree[edge.after_slot]; }
+    }
+    while (count < node_count_) {
+        int ready = -1; // 本轮就绪下标。
+        // slot：按注册顺序稳定选取节点。
+        for (uint16_t slot = 0U; slot < node_count_; ++slot) {
+            if (!selected[slot] && indegree[slot] == 0U) {
+                ready = static_cast<int>(slot);
+                break;
+            }
+        }
+        if (ready < 0) { return PluginStatus::CycleDetected; }
+        selected[ready] = true;
+        execution_slots_[plan][count++] = static_cast<uint16_t>(ready);
+        // index：释放本计划后继的依赖。
+        for (uint16_t index = 0U; index < edge_count_; ++index) {
+            const PluginEdge& edge = edges_[index]; // 当前依赖。
+            if (!edge.delayed && edgeApplies(edge, plan) && edge.before_slot == ready) {
+                --indegree[edge.after_slot];
+            }
+        }
+    }
     return PluginStatus::Ok;
 }
 
-// 按已编译顺序初始化所有节点。
+// 固定按计划 0 初始化一次，计划切换不重新初始化。
 PluginStatus PluginGraph::configureAll()
 {
     if (!compiled_) {
@@ -324,7 +364,7 @@ PluginStatus PluginGraph::configureAll()
     }
     for (uint16_t index = 0U; index < execution_count_; ++index) {
         // status：当前节点配置结果。
-        PluginStatus status = execution_order_[index]->configure();
+        PluginStatus status = nodes_[execution_slots_[0U][index]]->configure();
         if (status != PluginStatus::Ok) {
             return status;
         }
@@ -332,7 +372,7 @@ PluginStatus PluginGraph::configureAll()
     return PluginStatus::Ok;
 }
 
-// 按已编译顺序切换所有节点到 Running。
+// 固定按计划 0 启动一次，所有计划共用节点实例。
 PluginStatus PluginGraph::startAll()
 {
     if (!compiled_) {
@@ -340,7 +380,7 @@ PluginStatus PluginGraph::startAll()
     }
     for (uint16_t index = 0U; index < execution_count_; ++index) {
         // status：当前节点启动结果。
-        PluginStatus status = execution_order_[index]->start();
+        PluginStatus status = nodes_[execution_slots_[0U][index]]->start();
         if (status != PluginStatus::Ok) {
             return status;
         }
@@ -370,7 +410,7 @@ bool PluginGraph::dependenciesReady(uint16_t slot) const
     // index：本帧依赖边下标。
     for (uint16_t index = 0U; index < edge_count_; ++index) {
         const PluginEdge& edge = edges_[index]; // 当前依赖。
-        if (edge.delayed || edge.after_slot != slot) {
+        if (edge.delayed || edge.after_slot != slot || !edgeApplies(edge, active_plan_)) {
             continue;
         }
         const NodeFrameState state = stats_[edge.before_slot].frame_state; // 前驱本帧状态。
@@ -397,6 +437,7 @@ ProcessResult PluginGraph::processFrame(FrameContext& context, IProfiler* profil
     if (!compiled_) {
         return ProcessResult::Fault;
     }
+    latchPlan();
     // index：选择器下标；所有请求在第一节点执行前统一锁存。
     for (uint16_t index = 0U; index < selector_count_; ++index) {
         selectors_[index]->latch();
@@ -404,12 +445,14 @@ ProcessResult PluginGraph::processFrame(FrameContext& context, IProfiler* profil
     // index：注册下标；清除上一帧调度状态。
     for (uint16_t index = 0U; index < node_count_; ++index) {
         stats_[index].frame_state = NodeFrameState::Pending;
+        stats_[index].frame_order = 0xFFFFU;
     }
     ProcessResult aggregate = ProcessResult::Ok; // 本帧汇总结果。
+    uint16_t execution_ordinal = 0U; // 本帧实际 process 调用序号。
     // index：已编译执行顺序下标。
     for (uint16_t index = 0U; index < execution_count_; ++index) {
-        const uint16_t slot = execution_slots_[index]; // 注册下标。
-        PluginNode& node = *execution_order_[index]; // 当前节点。
+        const uint16_t slot = execution_slots_[active_plan_][index]; // 本计划注册下标。
+        PluginNode& node = *nodes_[slot]; // 当前节点。
         NodeExecutionStats& stats = stats_[slot]; // 当前节点统计。
         if (!branchActive(slot)) {
             stats.frame_state = NodeFrameState::SkippedBranch;
@@ -437,6 +480,7 @@ ProcessResult PluginGraph::processFrame(FrameContext& context, IProfiler* profil
             }
             continue;
         }
+        stats.frame_order = execution_ordinal++;
         const ProcessResult result = node.process(context); // 本次业务结果。
         ++stats.execution_count;
         node.recordProcessResult(result);
@@ -460,14 +504,14 @@ ProcessResult PluginGraph::processFrame(FrameContext& context, IProfiler* profil
     return aggregate;
 }
 
-// 停止时反向执行，保证后置节点先停止。
+// 按初始化计划 0 的逆序停止，不受最后一帧计划影响。
 void PluginGraph::stopAll()
 {
     if (!compiled_) {
         return;
     }
     for (uint16_t index = execution_count_; index > 0U; --index) {
-        execution_order_[index - 1U]->stop();
+        nodes_[execution_slots_[0U][index - 1U]]->stop();
     }
 }
 

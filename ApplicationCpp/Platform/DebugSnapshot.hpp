@@ -23,6 +23,7 @@ struct BranchNodeDebugSnapshot {
     uint32_t branch_skip_count{0U}; // 条件未选的次数。
     uint32_t blocked_count{0U}; // 输入或运行状态阻塞次数。
     uint8_t frame_state{0U}; // NodeFrameState 数值。
+    uint16_t frame_order{0xFFFFU}; // 本帧实际执行序号，未执行为65535。
 };
 
 // 一条路线的两个内部节点及末端结果。
@@ -50,6 +51,20 @@ struct BranchDebugSnapshot {
     BranchRouteDebugSnapshot routes[2]{}; // A/B 两条路线的统计。
 };
 
+// 执行计划演示；只有 requested_plan 是调试输入。
+struct PlanDebugSnapshot {
+    uint32_t requested_plan{0U}; // Watch可写：0=A先B后，1=B先A后。
+    uint32_t active_plan{0U}; // 本帧采用的计划。
+    uint32_t plan_count{1U}; // 根图声明计划数量。
+    uint32_t failed_plan{0xFFFFU}; // 失败计划编号，无具体失败为65535。
+    uint32_t switch_count{0U}; // 实际计划切换次数。
+    uint32_t generation{0U}; // 计划版本。
+    uint32_t rejected_frames{0U}; // 请求非法的帧数。
+    uint32_t frame_id{0U}; // 本次观测帧号。
+    BranchNodeDebugSnapshot a{}; // 探针A状态和执行序号。
+    BranchNodeDebugSnapshot b{}; // 探针B状态和执行序号。
+};
+
 // Keil Watch 可直接观察的固定调试快照；业务状态仍封装在节点对象内。
 struct RobotDebugSnapshot {
     volatile uint32_t frame_id; // 当前帧号。
@@ -67,6 +82,7 @@ struct RobotDebugSnapshot {
     volatile uint8_t reserved; // 保留字节。
     ChassisDebugSnapshot chassis{}; // 随全局 volatile 快照一起供 Watch 读取。
     BranchDebugSnapshot branch{}; // 条件分支选择入口及结果。
+    PlanDebugSnapshot plan{}; // 执行顺序切换入口及结果。
 };
 
 } // namespace robot::platform

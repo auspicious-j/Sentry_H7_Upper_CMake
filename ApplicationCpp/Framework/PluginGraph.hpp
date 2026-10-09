@@ -12,6 +12,8 @@
 namespace robot::framework {
 
 class PluginNode;
+constexpr uint16_t kAllExecutionPlans = 0xFFFFU; // 依赖适用于全部计划。
+constexpr uint16_t kNoFailedPlan = 0xFFFFU; // 无具体失败计划。
 
 // 一条执行依赖边。delayed=true 表示读取上一周期数据，不参与本周期拓扑排序。
 struct PluginEdge {
@@ -21,6 +23,7 @@ struct PluginEdge {
     bool allow_branch_skip{false}; // 汇合边可忽略条件未选中的前驱。
     uint16_t before_slot{0U}; // compile 缓存的前驱下标。
     uint16_t after_slot{0U}; // compile 缓存的后继下标。
+    uint16_t plan_id{kAllExecutionPlans}; // 专属计划编号或全部计划。
 };
 
 // 固定容量的有向插件图。组装完成后 compile() 生成执行顺序并冻结图结构。
@@ -37,6 +40,23 @@ public:
     PluginStatus setBranch(PluginNode& node, BranchSelector& selector, uint16_t route);
     // node：待查询节点；不属于本图时返回空指针。
     const NodeExecutionStats* executionStats(const PluginNode& node) const;
+
+    // count：根图全局计划数，启动时声明；默认只有计划 0。
+    PluginStatus setPlanCount(uint16_t count);
+    // before/after：端点；plan：专属计划；delayed：是否跨帧。
+    PluginStatus addPlanDependency(PluginNode& before, PluginNode& after, uint16_t plan, bool delayed = false);
+    // plan：下一帧请求，只由所属执行器任务调用；非法值保留原请求。
+    bool requestPlan(uint32_t plan);
+    // 返回已声明的计划数量。
+    uint16_t planCount() const { return plan_count_; }
+    // 返回本帧锁存计划。
+    uint16_t activePlan() const { return active_plan_; }
+    // 返回计划实际切换次数。
+    uint32_t planSwitchCount() const { return plan_switch_count_; }
+    // 返回计划切换版本，不因重复请求同一计划递增。
+    uint32_t planGeneration() const { return plan_generation_; }
+    // 返回编译失败计划编号；0xFFFF 表示没有具体计划失败。
+    uint16_t failedPlan() const { return failed_plan_; }
 
     // 递归调用节点的 compose。
     PluginStatus compose();
@@ -72,22 +92,29 @@ private:
     // node：递归展开的父节点。
     PluginStatus composeNode(PluginNode& node);
     // before/after：端点；delayed/allow_branch_skip：依赖行为。
-    PluginStatus addEdge(PluginNode& before, PluginNode& after, bool delayed, bool allow_branch_skip);
+    PluginStatus addEdge(PluginNode& before, PluginNode& after, bool delayed, bool allow_branch_skip,
+                         uint16_t plan = kAllExecutionPlans);
+    // plan：启动时为此计划生成独立拓扑顺序。
+    PluginStatus compilePlan(uint16_t plan);
+    // edge/plan：判断依赖是否属于该计划。
+    static bool edgeApplies(const PluginEdge& edge, uint16_t plan);
+    // 帧开始统一锁存请求，运行中不改变实际计划。
+    void latchPlan();
     // slot：节点下标；检查自身及祖先的路线条件。
     bool branchActive(uint16_t slot) const;
     // slot：节点下标；检查所有本帧输入依赖。
     bool dependenciesReady(uint16_t slot) const;
     int findNodeIndex(const PluginNode* node) const;
-    bool hasEdge(const PluginNode* before, const PluginNode* after, bool delayed) const;
+    // before/after/delayed/plan：查找语义重叠的依赖，返回边下标或 -1。
+    int findOverlappingEdge(const PluginNode* before, const PluginNode* after, bool delayed, uint16_t plan) const;
 
     // 注册表、边表和编译后的执行顺序均为静态数组，避免运行期堆分配。
     // 节点注册表。
     PluginNode* nodes_[ROBOT_MAX_PLUGIN_NODES]{};
     // 依赖边表。
     PluginEdge edges_[ROBOT_MAX_PLUGIN_EDGES]{};
-    // 拓扑排序后的执行顺序。
-    PluginNode* execution_order_[ROBOT_MAX_PLUGIN_NODES]{};
-    uint16_t execution_slots_[ROBOT_MAX_PLUGIN_NODES]{}; // 执行顺序对应的注册下标。
+    // 每计划独立存放注册下标，所有计划共用同一批节点对象。
+    uint16_t execution_slots_[ROBOT_MAX_EXECUTION_PLANS][ROBOT_MAX_PLUGIN_NODES]{};
     BranchCondition conditions_[ROBOT_MAX_PLUGIN_NODES]{}; // 各节点及祖先的分支条件。
     NodeExecutionStats stats_[ROBOT_MAX_PLUGIN_NODES]{}; // 各节点执行统计。
     BranchSelector* selectors_[ROBOT_MAX_PLUGIN_NODES]{}; // 本图去重后的选择器。
@@ -98,6 +125,14 @@ private:
     uint16_t edge_count_{0U};
     // 已编译执行节点数量。
     uint16_t execution_count_{0U};
+    uint16_t plan_count_{1U}; // 本根图声明的计划数量。
+    uint16_t requested_plan_{0U}; // 下帧待生效的计划。
+    uint16_t active_plan_{0U}; // 本帧实际计划。
+    uint16_t failed_plan_{kNoFailedPlan}; // 编译错误定位。
+    uint32_t plan_switch_count_{0U}; // 实际切换次数。
+    uint32_t plan_generation_{0U}; // 计划切换版本。
+    bool compile_attempted_{false}; // 本对象是否已经尝试编译。
+    PluginStatus compile_status_{PluginStatus::InvalidState}; // 保存失败原因，禁止使用部分计划。
     // 是否完成递归组装。
     bool composed_{false};
     // 是否生成执行计划。
@@ -106,6 +141,8 @@ private:
     bool frozen_{false};
 };
 
+static_assert(ROBOT_MAX_EXECUTION_PLANS > 0U && ROBOT_MAX_EXECUTION_PLANS < kAllExecutionPlans,
+              "Invalid execution plan capacity");
 static_assert(ROBOT_MAX_PLUGIN_NODES > 0U, "Plugin graph needs node storage");
 static_assert(ROBOT_MAX_PLUGIN_EDGES > 0U, "Plugin graph needs edge storage");
 static_assert(ROBOT_MAX_PLUGIN_NODES <= 32767U, "Parent index storage exceeded");

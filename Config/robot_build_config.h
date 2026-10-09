@@ -16,6 +16,8 @@
 // 静态图容量，运行期不扩容。
 #define ROBOT_MAX_PLUGIN_NODES 32U
 #define ROBOT_MAX_PLUGIN_EDGES 64U
+// 根图最多预存的执行计划数；当前演示使用其中两套。
+#define ROBOT_MAX_EXECUTION_PLANS 4U
 
 // 轻量耗时统计；完整 trace 另行控制。
 #define ROBOT_ENABLE_PERF_COUNTERS 1
@@ -29,5 +31,8 @@
 
 // 是否组装无硬件输出的条件分支演示图。
 #define ROBOT_ENABLE_BRANCH_DEMO 1
+
+// 是否组装无硬件输出的执行顺序切换演示。
+#define ROBOT_ENABLE_PLAN_DEMO 1
 
 #endif /* ROBOT_BUILD_CONFIG_H */

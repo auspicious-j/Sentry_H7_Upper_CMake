@@ -7,6 +7,10 @@
 #include "Nodes/Motor/MotorFeedbackNode.hpp"
 #include "Nodes/Motor/MotorOfflineNode.hpp"
 #include "robot_build_config.h"
+#if ROBOT_ENABLE_PLAN_DEMO
+#include "Nodes/Diagnostics/ExecutionPlanDemoNode.hpp"
+static_assert(ROBOT_MAX_EXECUTION_PLANS >= 2U, "Plan demo needs two plans");
+#endif
 #if ROBOT_ENABLE_BRANCH_DEMO
 #include "Nodes/Diagnostics/BranchDemoNode.hpp"
 #endif
@@ -37,6 +41,10 @@ public:
 
 private:
     class HeartbeatNode;
+#if ROBOT_ENABLE_PLAN_DEMO
+    // 帧结束复制当前计划与探针执行顺序。
+    void updatePlanDebug();
+#endif
 #if ROBOT_ENABLE_BRANCH_DEMO
     // 同帧执行结束后复制分支状态，保留用户请求值。
     void updateBranchDebug();
@@ -60,6 +68,9 @@ private:
 #endif
 #if ROBOT_ENABLE_BRANCH_DEMO
     robot::diagnostics::BranchDemoNode branch_demo_{}; // 无硬件输出的分支演示图。
+#endif
+#if ROBOT_ENABLE_PLAN_DEMO
+    robot::diagnostics::ExecutionPlanDemoNode plan_demo_{}; // 预编译顺序演示。
 #endif
     // STM32 单调时钟。
     robot::platform::stm32::Stm32Clock clock_{};

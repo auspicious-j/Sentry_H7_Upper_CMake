@@ -80,6 +80,7 @@ struct NodeExecutionStats {
     uint32_t branch_skip_count{0U}; // 条件跳过次数。
     uint32_t blocked_count{0U}; // 依赖或运行状态阻塞次数。
     NodeFrameState frame_state{NodeFrameState::Pending}; // 最近帧调度状态。
+    uint16_t frame_order{0xFFFFU}; // 本帧 process 调用序号，未执行为 0xFFFF。
 };
 
 } // namespace robot::framework
