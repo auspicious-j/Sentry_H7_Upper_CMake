@@ -1,4 +1,4 @@
-﻿#ifndef ROBOT_BUILD_CONFIG_H
+#ifndef ROBOT_BUILD_CONFIG_H
 #define ROBOT_BUILD_CONFIG_H
 
 /* Shared by the STM32 target and future NUC/Linux targets. */
@@ -21,5 +21,13 @@
 #define ROBOT_ENABLE_PERF_COUNTERS 1
 #define ROBOT_ENABLE_PERF_TRACE    0
 #define ROBOT_ENABLE_DEBUG_SNAPSHOT 1
+
+// 是否启动底盘板间反馈观察链路；不接管任何控制输出。
+#define ROBOT_ENABLE_CHASSIS_OBSERVER 1
+// 下板帧在线判断阈值，单位 ms；不代表单电机掉线阈值。
+#define ROBOT_CHASSIS_FEEDBACK_TIMEOUT_MS 100U
+
+// 是否组装无硬件输出的条件分支演示图。
+#define ROBOT_ENABLE_BRANCH_DEMO 1
 
 #endif /* ROBOT_BUILD_CONFIG_H */

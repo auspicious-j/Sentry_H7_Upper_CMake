@@ -7,15 +7,15 @@ namespace robot::framework {
 
 // 组装、验证、编译和生命周期操作的返回状态。
 enum class PluginStatus : uint8_t {
-    Ok = 0,
-    InvalidState,
-    DuplicateNode,
-    DuplicateEdge,
-    CapacityExceeded,
-    MissingNode,
-    CycleDetected,
-    Frozen,
-    ConfigurationFault,
+    Ok = 0,              // 操作成功。
+    InvalidState,        // 当前状态不允许该操作（如已初始化后再初始化）。
+    DuplicateNode,       // 重复注册：同一节点对象或相同节点 ID 已存在。
+    DuplicateEdge,       // 重复添加：该依赖边（含 delayed 标志）已存在。
+    CapacityExceeded,    // 超出容量上限：节点数或依赖边数已达最大值。
+    MissingNode,         // 依赖边引用了尚未注册的节点。
+    CycleDetected,       // 检测到依赖回环（本周期边自环或拓扑排序成环）。
+    Frozen,              // 图已冻结：compile() 之后不允许再改结构。
+    ConfigurationFault,  // 配置失败：节点配置错误或子图非法（如空指针）。
 };
 
 // 节点一次 process() 调用的结果。

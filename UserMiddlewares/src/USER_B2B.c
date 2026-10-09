@@ -1,4 +1,6 @@
 #include "USER_B2B.h"
+#include "robot_build_config.h"
+#include "STM32/ChassisFeedbackBridge.h"
 #include "Chassis.h"
 #include "usart.h"
 #include "cmsis_os.h"
@@ -20,6 +22,48 @@ uint32_t receive_times;
 
 /* 需要用到的发送变量*/
 uint8_t usart2TxBuf[64];
+
+#if ROBOT_ENABLE_CHASSIS_OBSERVER
+// 仅由 B2B 接收回调写入；任务通过短临界区取得完整样本。
+static volatile RobotChassisFeedbackSnapshot chassis_feedback_snapshot = {0};
+
+// 旧解码完成后发布快照；不改变旧 chassis 对象或发送内容。
+static void B2B_PublishChassisSnapshot(void)
+{
+    uint8_t index; // 轮组下标，保持旧协议顺序。
+    for (index = 0U; index < ROBOT_CHASSIS_FEEDBACK_WHEELS; ++index)
+    {
+        chassis_feedback_snapshot.steering_deg[index] = chassis.motors[index].TurnAngle;
+        chassis_feedback_snapshot.drive_rpm[index] = chassis.motors[index].now_Speed;
+    }
+    chassis_feedback_snapshot.lower_feedback = FEEDBACK;
+    chassis_feedback_snapshot.received_tick_ms = HAL_GetTick();
+    chassis_feedback_snapshot.receive_count++;
+    chassis_feedback_snapshot.received = 1U;
+}
+#endif
+
+// destination：接收结果；只供任务读取，不允许空指针写入。
+void RobotChassisFeedback_Read(RobotChassisFeedbackSnapshot* destination)
+{
+    if (destination == NULL)
+    {
+        return;
+    }
+#if ROBOT_ENABLE_CHASSIS_OBSERVER
+    const uint32_t saved_primask = __get_PRIMASK(); // 调用前中断屏蔽状态。
+    __disable_irq();
+    __DMB();
+    // 临界区只复制固定大小快照和读取 tick，不进行解算。
+    *destination = chassis_feedback_snapshot;
+    destination->sampled_tick_ms = HAL_GetTick();
+    __DMB();
+    __set_PRIMASK(saved_primask);
+#else
+    const RobotChassisFeedbackSnapshot empty = {0}; // 关闭观察时的空快照。
+    *destination = empty;
+#endif
+}
 
 // 板间通信初始化
 void B2B_Init()
@@ -111,6 +155,9 @@ void B2B_Receive(void)
 	    memcpy(&USER_JudgeData, &usart2RxBuf[29], sizeof(JudgeData_t)); //解析裁判系统数据 29-58
 
 	    FEEDBACK = usart2RxBuf[62];
+#if ROBOT_ENABLE_CHASSIS_OBSERVER
+        B2B_PublishChassisSnapshot(); // 在旧帧校验及解析完成后记录反馈。
+#endif
 	}
 }
 

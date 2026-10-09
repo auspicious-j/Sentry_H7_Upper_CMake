@@ -1,4 +1,4 @@
-﻿#ifndef ROBOT_PLUGIN_NODE_HPP
+#ifndef ROBOT_PLUGIN_NODE_HPP
 #define ROBOT_PLUGIN_NODE_HPP
 
 #include "PluginGraph.hpp"
@@ -47,6 +47,8 @@ public:
     }
     // process 是节点的业务入口，由执行器按节点周期调用。
     virtual ProcessResult process(FrameContext& context) = 0;
+    // context：被跳过的帧；有输出的分支节点应在重写中使输出失效。
+    virtual void onSkipped(FrameContext& context) { (void)context; }
     // stop 只改变运行状态，不释放静态对象。
     virtual void stop()
     {

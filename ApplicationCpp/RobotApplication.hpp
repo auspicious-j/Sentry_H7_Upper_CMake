@@ -6,6 +6,15 @@
 #include "Framework/PluginNode.hpp"
 #include "Nodes/Motor/MotorFeedbackNode.hpp"
 #include "Nodes/Motor/MotorOfflineNode.hpp"
+#include "robot_build_config.h"
+#if ROBOT_ENABLE_BRANCH_DEMO
+#include "Nodes/Diagnostics/BranchDemoNode.hpp"
+#endif
+#if ROBOT_ENABLE_CHASSIS_OBSERVER
+#include "Nodes/Chassis/ChassisFeedbackNode.hpp"
+#include "Nodes/Chassis/ChassisObserverNode.hpp"
+#include "../Platform/STM32/LegacyChassisFeedbackSource.hpp"
+#endif
 #include "Platform/IClock.hpp"
 #include "Platform/IProfiler.hpp"
 #include "../Platform/STM32/Stm32Clock.hpp"
@@ -28,14 +37,30 @@ public:
 
 private:
     class HeartbeatNode;
+#if ROBOT_ENABLE_BRANCH_DEMO
+    // 同帧执行结束后复制分支状态，保留用户请求值。
+    void updateBranchDebug();
+#endif
+#if ROBOT_ENABLE_CHASSIS_OBSERVER
+    // 向 C 调试符号复制观察结果，不在业务节点中引用全局调试对象。
+    void updateChassisDebug();
+#endif
 
-    // 当前骨架只有心跳节点；后续底盘、云台等节点从这里组装。
+    // 组装心跳、电机状态和底盘反馈观察节点。
     // 根插件图。
     robot::framework::PluginGraph graph_{};
     // 心跳节点指针，实际对象为静态成员。
     HeartbeatNode* heartbeat_{nullptr};
     robot::motor::MotorFeedbackNode motor_feedback_{}; // 旧电机反馈到新端口的适配节点。
     robot::motor::MotorOfflineNode motor_offline_{}; // 电机反馈超时检测节点。
+#if ROBOT_ENABLE_CHASSIS_OBSERVER
+    robot::platform::stm32::LegacyChassisFeedbackSource chassis_source_{}; // 先于引用它的节点构造。
+    robot::chassis::ChassisFeedbackNode chassis_feedback_{30U, chassis_source_}; // 板间反馈发布节点。
+    robot::chassis::ChassisObserverNode chassis_observer_{31U, ROBOT_CHASSIS_FEEDBACK_TIMEOUT_MS}; // 底盘观察节点。
+#endif
+#if ROBOT_ENABLE_BRANCH_DEMO
+    robot::diagnostics::BranchDemoNode branch_demo_{}; // 无硬件输出的分支演示图。
+#endif
     // STM32 单调时钟。
     robot::platform::stm32::Stm32Clock clock_{};
     // STM32 性能统计器。

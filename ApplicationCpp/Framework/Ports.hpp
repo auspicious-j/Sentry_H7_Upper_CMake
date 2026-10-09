@@ -1,4 +1,4 @@
-﻿#ifndef ROBOT_PORTS_HPP
+#ifndef ROBOT_PORTS_HPP
 #define ROBOT_PORTS_HPP
 
 #include <cstdint>
@@ -16,6 +16,9 @@ public:
         frame_id_ = frame_id;
         valid_ = true;
     }
+
+    // 使旧值失效；保留数值便于调试，不允许当作当前输出使用。
+    void invalidate() { valid_ = false; }
 
     // 读取当前保存的值。
     const T& read() const
@@ -75,6 +78,9 @@ public:
         signal_ = &signal;
     }
 
+    // 查询是否已绑定，不要求已有样本。
+    bool connected() const { return signal_ != nullptr; }
+
     // 判断输入是否已连接且有效。
     bool valid() const
     {
@@ -85,6 +91,12 @@ public:
     const T& read() const
     {
         return signal_->read();
+    }
+
+    // frame_id：要求的帧号；拒绝上轮残留值。
+    bool validForFrame(uint32_t frame_id) const
+    {
+        return valid() && signal_->frameId() == frame_id;
     }
 
     // 返回输入数据的帧号。
