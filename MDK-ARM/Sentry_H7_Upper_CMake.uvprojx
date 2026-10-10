@@ -982,6 +982,77 @@
           </Files>
         </Group>
         <Group>
+          <GroupName>ApplicationCpp/Nodes/Snapshot</GroupName>
+          <Files>
+            <File>
+              <FileName>SnapshotDemoNode.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\ApplicationCpp\Nodes\Diagnostics\SnapshotDemoNode.cpp</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>ApplicationCpp/Nodes/Comparison</GroupName>
+          <Files>
+            <File>
+              <FileName>ComparisonDemoNode.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\ApplicationCpp\Nodes\Diagnostics\ComparisonDemoNode.cpp</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>2</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>1</IncludeInBuild>
+                  <AlwaysBuild>2</AlwaysBuild>
+                  <GenerateAssemblyFile>2</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>2</AssembleAssemblyFile>
+                  <PublicsOnly>2</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument></CustomArgument>
+                  <IncludeLibraryModules></IncludeLibraryModules>
+                  <ComprImg>1</ComprImg>
+                </CommonProperty>
+                <FileArmAds>
+                  <Cads>
+                    <interw>1</interw>
+                    <Optim>1</Optim>
+                    <oTime>0</oTime>
+                    <SplitLS>0</SplitLS>
+                    <OneElfS>1</OneElfS>
+                    <Strict>0</Strict>
+                    <EnumInt>0</EnumInt>
+                    <PlainCh>0</PlainCh>
+                    <Ropi>0</Ropi>
+                    <Rwpi>0</Rwpi>
+                    <wLevel>3</wLevel>
+                    <uThumb>0</uThumb>
+                    <uSurpInc>0</uSurpInc>
+                    <uC99>1</uC99>
+                    <uGnu>1</uGnu>
+                    <useXO>0</useXO>
+                    <v6Lang>3</v6Lang>
+                    <v6LangP>8</v6LangP>
+                    <vShortEn>1</vShortEn>
+                    <vShortWch>1</vShortWch>
+                    <v6Lto>0</v6Lto>
+                    <v6WtE>0</v6WtE>
+                    <v6Rtti>0</v6Rtti>
+                    <VariousControls>
+                      <MiscControls>-fno-fast-math</MiscControls>
+                      <Define></Define>
+                      <Undefine></Undefine>
+                      <IncludePath></IncludePath>
+                    </VariousControls>
+                  </Cads>
+                </FileArmAds>
+              </FileOption>
+            </File>
+          </Files>
+        </Group>
+        <Group>
           <GroupName>::CMSIS</GroupName>
         </Group>
       </Groups>

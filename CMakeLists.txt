@@ -38,6 +38,11 @@ file(GLOB_RECURSE USER_CPP_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/Platform/*.cpp"
 )
 
+# Only the diagnostic comparison requires IEEE finite-value checks.
+set_source_files_properties(
+    "${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Nodes/Diagnostics/ComparisonDemoNode.cpp"
+    PROPERTIES COMPILE_OPTIONS "-fno-fast-math"
+)
 target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE)
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE

@@ -38,7 +38,7 @@ bool PluginGraph::edgeApplies(const PluginEdge& edge, uint16_t plan)
     return edge.plan_id == kAllExecutionPlans || edge.plan_id == plan;
 }
 
-// count：根执行器全局计划数，不能运行时改变。
+// count：根执行器全局计划数，不能运行时改变，在组装前设置
 PluginStatus PluginGraph::setPlanCount(uint16_t count)
 {
     if (frozen_) { return PluginStatus::Frozen; }
@@ -490,10 +490,9 @@ bool PluginGraph::dependenciesReady(uint16_t slot) const
     return !has_alternative || completed_alternative;
 }
 
-// context：本帧上下文；profiler 沿用预留接口，节点只执行一次。
+// context：本帧上下文；profiler 只测实际 process 调用，不把跳过当作执行。
 ProcessResult PluginGraph::processFrame(FrameContext& context, IProfiler* profiler)
 {
-    (void)profiler; // 本板块不改变现有探针实现。
     if (!compiled_ || frame_in_progress_ || lifecycle_in_progress_) {
         return ProcessResult::Fault;
     }
@@ -544,7 +543,9 @@ ProcessResult PluginGraph::processFrame(FrameContext& context, IProfiler* profil
             continue;
         }
         stats.frame_order = execution_ordinal++;
+        if (profiler != nullptr) { profiler->beginNode(node.id()); }
         const ProcessResult result = node.process(context); // 本次业务结果。
+        if (profiler != nullptr) { profiler->endNode(); }
         ++stats.execution_count;
         node.recordProcessResult(result);
         stats.frame_state = NodeFrameState::Executed;

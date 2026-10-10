@@ -7,6 +7,12 @@
 #include "Nodes/Motor/MotorFeedbackNode.hpp"
 #include "Nodes/Motor/MotorOfflineNode.hpp"
 #include "robot_build_config.h"
+#if ROBOT_ENABLE_COMPARISON_DEMO
+#include "Nodes/Diagnostics/ComparisonDemoNode.hpp"
+#endif
+#if ROBOT_ENABLE_SNAPSHOT_DEMO
+#include "Nodes/Diagnostics/SnapshotDemoNode.hpp"
+#endif
 #if ROBOT_ENABLE_PLAN_DEMO
 #include "Nodes/Diagnostics/ExecutionPlanDemoNode.hpp"
 static_assert(ROBOT_MAX_EXECUTION_PLANS >= 2U, "Plan demo needs two plans");
@@ -41,6 +47,10 @@ public:
 
 private:
     class HeartbeatNode;
+#if ROBOT_ENABLE_COMPARISON_DEMO
+    // 帧结束发布算术比较结果，保留 Watch 请求字段。
+    void updateComparisonDebug();
+#endif
 #if ROBOT_ENABLE_PLAN_DEMO
     // 帧结束复制当前计划与探针执行顺序。
     void updatePlanDebug();
@@ -72,8 +82,18 @@ private:
 #if ROBOT_ENABLE_PLAN_DEMO
     robot::diagnostics::ExecutionPlanDemoNode plan_demo_{}; // 预编译顺序演示。
 #endif
+#if ROBOT_ENABLE_SNAPSHOT_DEMO
+    // 帧结束复制最新快照状态。
+    void updateSnapshotDebug();
+#endif
     // STM32 单调时钟。
     robot::platform::stm32::Stm32Clock clock_{};
+#if ROBOT_ENABLE_SNAPSHOT_DEMO
+    robot::diagnostics::SnapshotDemoNode snapshot_demo_; // 异步快照演示图。
+#endif
+#if ROBOT_ENABLE_COMPARISON_DEMO
+    robot::diagnostics::ComparisonDemoNode comparison_demo_{}; // 两个独立状态的算术验证。
+#endif
     // STM32 性能统计器。
     robot::platform::stm32::Stm32Profiler profiler_;
     // 当前帧上下文。

@@ -35,4 +35,10 @@
 // 是否组装无硬件输出的执行顺序切换演示。
 #define ROBOT_ENABLE_PLAN_DEMO 1
 
+// 是否组装无硬件输出的异步快照演示。
+#define ROBOT_ENABLE_SNAPSHOT_DEMO 1
+
+// 是否组装独立状态算术比较演示；只产生调试数据。
+#define ROBOT_ENABLE_COMPARISON_DEMO 1
+
 #endif /* ROBOT_BUILD_CONFIG_H */

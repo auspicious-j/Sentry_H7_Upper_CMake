@@ -46,10 +46,10 @@ CubeMX-generated C files remain under `Core/`, `Drivers/`, `USB_DEVICE/`, and
 ## 后续范围修订（2026-10-09）
 
 后续以框架和薄适配层为主，保留团队原有业务算法，不继续重写底盘解算。
-预定义路线的条件选择已实现；多套预验证执行计划切换已进入新板块，等待用户编译。
+预定义路线、预验证执行计划切换、生命周期通知和最新值邮箱均已有实现，原始板块已收到用户编译通过反馈。
 ROS 2 通信桥接与 ONNX/RKNN 推理后端留作上位机扩展，不成为 STM32 依赖。
 
-代码按板块交付用户 Keil 编译，旁路能力就绪后统一烧录观察；新框架暂不接管旧输出。
+最新用户约定：不再逐板块等待用户 Keil 编译；助手连续推进并自行做可用检查，最后由用户统一烧录观察。旧源码和输出链路保持原样。
 详细决策见 `doc/插件化架构设计讨论-01.md`。
 
 
@@ -110,7 +110,7 @@ ROS 2 通信桥接与 ONNX/RKNN 推理后端留作上位机扩展，不成为 ST
 - `graph.addBranchDependency(end, merge)` 只允许忽略 SkippedBranch，不能忽略 Faulted、NoData 或未启动节点。汇合至少需要一个真实完成的分支输入。
 - `BranchMergeNode<T,N>` 转发 selector 所选输入，检查输入有效且帧号一致。端口绑定和依赖边必须都声明。
 - 分支节点的 `onSkipped(context)` 应使自身输出失效；默认回调为空，以保持旧节点兼容。现有旧端口的保持值语义不变，不能将此改动当作所有旧端口自动防陈旧数据的保证。
-- 所有节点启动时配置一次；路线切换不自动重新 start/stop，不清空业务内部状态。激活/退出状态重置留待下一板块明确实现。
+- 所有节点启动时配置一次；路线切换不自动重新 start/stop。已提供 onEnter/onExit/onPlanChanged，业务状态是否重置由节点自己的回调决定。
 - 当前一个执行域、一个 root graph 管理这些对象；禁止同一选择器/节点被多个并行根执行器同时驱动。
 - 每套执行计划必须单独无环；新增多计划能力允许 A→B 与 B→A 属于不同计划，详见下节。
 - 未添加 Linux/ROS/模型运行库，不使用运行期堆分配；编译和实际 1 kHz 时序由用户验证。
@@ -179,8 +179,8 @@ graph.requestPlan(1U);
 - 节点 configure/start 固定按计划0调用一次，stop 按计划0逆序；运行期切换不调用这些函数、不重置 PID/滤波或其他状态。生命周期扩展用 onEnter/onExit/onPlanChanged，默认为空，业务节点自行决定是否重置状态。
 - 数据端口不自动重连；如两种顺序需要不同数据来源，调用者必须显式适配且检查帧号，不能用同帧环互相等待。
 - 当前仍是单根、单执行任务；请求不是线程安全 API，跨任务入口需要平台交接。
-- 本板块不包含计划切换回调、异步推理取消、运行时任意改图。
-- 只完成静态审查，Keil 编译、资源占用和实车时序待用户验证。
+- 计划切换通知已由后续生命周期板块提供；异步推理取消、运行时任意改图尚未实现。
+- 原始板块用户已确认 Keil 编译通过，资源占用和实际时序仍待实车验证。
 
 2026-10-09 验证更新：用户确认多执行计划板块 Keil 编译通过；运行顺序切换与实际时序待统一烧录验证。
 
@@ -225,3 +225,74 @@ active
 `first_runs_since_enter` 和 `second_runs_since_enter` 是演示节点每次 onEnter 清零的业务计数；它们与框架累计 `execution_count` 分开。
 
 2026-10-09 验证更新：用户确认生命周期通知板块 Keil 编译通过；通知行为与时序待后续统一实车验证。
+
+
+## 异步最新值邮箱板块（2026-10-09，原始板块用户已确认编译通过）
+
+本阶段为未来 ROS 2 订阅、视觉结果和模型推理结果预留“异步最新值”边界，同时只在 STM32 上使用一个无硬件演示：
+
+```text
+SnapshotProducerNode（每10帧发布）
+        ↓ 最新值邮箱 + STM32 短临界区
+SnapshotConsumerNode（每帧读取）
+        ↓
+g_robot_debug.snapshot
+```
+
+它和 `FrameSignal<T>` 的语义不同：`FrameSignal` 用于同一个插件图执行帧内的同帧数据；邮箱用于外部回调/任务与图任务之间的最新样本交接。邮箱不会排队所有历史消息，也不会因为读取刷新样本序号或采样时间。
+
+### Watch 观测
+
+`ROBOT_ENABLE_SNAPSHOT_DEMO=1` 时，默认节点数从上一阶段的 17 增加到 20，边从 9 增加到 10。`g_robot_debug.snapshot.publish_enabled` 可写：
+
+```text
+1：生产节点每10帧发布一个新样本
+0：暂停发布；消费者继续每帧读取最新旧样本
+```
+
+| 字段 | 含义 |
+| --- | --- |
+| `frame_id` | 最近消费者帧 |
+| `sequence` | 只在生产者发布时递增；暂停后保持 |
+| `read_count` | 消费节点读取次数 |
+| `age_us` | 当前时钟减原始采样时刻 |
+| `status` | 0=Empty，1=Fresh，2=Stale，3=ClockMismatch |
+| `publish_enabled` | Watch 发布开关 |
+
+启动后第一次发布前状态为 Empty；发布后按 TTL=5000 us 判断 Fresh/Stale。暂停发布后 sequence 不再增长、age_us 继续增长，超过 TTL 后 status=Stale。读取旧值不会把它当作新样本。
+
+STM32 后端只在复制固定快照时保存/禁用/恢复 PRIMASK，并使用内存屏障；不保护 DMA、NMI、HardFault 或多核访问。真实跨任务接口仍需由平台调用者选定单一同步后端和时钟域。
+
+该板块不实现 ROS 2、ONNX、RKNN、事件队列或模型请求取消，也不修改现有业务和硬件输出。
+
+2026-10-09 20:11 用户已确认原始邮箱板块编译通过。后续修正中，消费者只调用一次 `copyTo()`，然后在取得当前时间后调用 `evaluateSnapshot(snapshot, now, ttl)`；序号、数值与有效期属于同一份稳定副本。兼容的 `mailbox.status()` 仍可用于只关心状态的调用者，不能把它与另一次读取的数值拼成同一份样本。
+
+## 通用数值对比与性能修正（2026-10-09）
+
+新增 `Framework/OutputComparison.hpp`，用于比较两份已经计算完的通用数值结果。只有输入序号、采样时间、状态版本及计算步数都相同，才计算 `candidate - reference` 和最大绝对差。缺失、未对齐、非法容差和非有限值与真正的结果差异分开表示。
+
+接口是纯函数，不调用业务函数、不借用对方控制状态，也不发送硬件命令。当前已接入 g_robot_debug.comparison 的合成输入演示，尚未接入真实控制输出，不能据此宣称已获得两套完整程序的电机输出对比。包含该头文件的新翻译单元必须使用 `-fno-fast-math`；ARMClang 默认的有限数假设会破坏 NaN/Inf 诊断，因此头文件对此模式明确报错，旧业务编译选项未改动。
+
+`PluginGraph` 已恢复在实际 `process()` 调用前后执行 `beginNode/endNode`。条件跳过、依赖阻塞不产生节点执行耗时；生命周期回调不属于该节点 `process` 耗时。帧级统计范围保持原样，包含图调度与 Debug 汇总。当前 `last_node_duration_us/max_node_duration_us` 仍是所有节点共用的最近值/最大值，不是逐节点统计表。
+
+`checks/FrameworkContractChecks.cpp` 使用 ARMClang 编译期断言验证快照 TTL、时间回拨、比较身份、容差及非有限/溢出边界；不进入固件、不引入主机仿真。受影响的新框架翻译单元也完成目标编译器语法检查。以上不是固件全量链接或实车通过的结论。
+
+接口用法、检查命令与交付边界见 [通用快照与结果对比接口](../doc/通用快照与结果对比接口-2026-10-09.md)。
+
+## 独立状态算术比较演示（2026-10-09）
+
+ROBOT_ENABLE_COMPARISON_DEMO=1 时新增 ID 100 容器、101 输入、102 参考、103 候选、104 比较，共 5 个节点和 4 条公共依赖。默认整图为 **25 节点、14 条声明边、2 个计划**，每计划使用 13 条边。之前各阶段的节点数是历史记录。
+
+两个累计器独占各自状态，只读取同一个每帧生成的整数输入，不读取或调用旧业务。调试入口为 g_robot_debug.comparison：
+
+- 正常：status=4（Equal），difference_valid=1，差值为 0。
+- candidate_bias=3：status=5（Different），difference[0]=3；清零偏差后恢复。
+- pause_candidate=1：保留旧候选结果，status=1（Unaligned）；恢复不补算漏帧，需共同重置对齐。
+- reset_candidate_request 改为不同数值：只重置候选，epoch 不同；reset_all_request 改值：分别重置两实例。
+- reset_all_request 同帧优先；共同重置时 pause_candidate 应为 0，偏差为 0 才预期 Equal。
+- input_value / candidate_bias 合法范围 [-1000,1000]，非法值保留上次参数，applied_* 和 rejected_frames 可观察。
+- 重置不清除历史计数与 historical_max_abs_difference；Missing/Unaligned 的零差值没有比较意义。
+
+只有 ComparisonDemoNode.cpp 包含严格浮点比较算法，CMake/Keil 都为该文件设置 -fno-fast-math。ComparisonTypes.hpp 只定义数据，使应用和其他头文件保持原编译选项。
+
+本次 29 条目标编译期断言及受影响应用文件语法检查通过；独立只读审查无待修项。没有运行 UV4 全量构建、完整固件链接或本版本上板实测。逐项 Watch 步骤、当前等待事项及后续计划见 [通用快照与结果对比接口](../doc/通用快照与结果对比接口-2026-10-09.md)。

@@ -1,5 +1,6 @@
 sentry_h7_upper_cmake/user_b2b.o: ..\UserMiddlewares\src\USER_B2B.c \
-  ..\UserMiddlewares\inc\USER_B2B.h ..\Application\inc\Chassis.h \
+  ..\UserMiddlewares\inc\USER_B2B.h ..\Config\robot_build_config.h \
+  ..\Platform\STM32\ChassisFeedbackBridge.h ..\Application\inc\Chassis.h \
   ..\Core\Inc\main.h ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal.h \
   ..\Core\Inc\stm32h7xx_hal_conf.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_rcc.h \
@@ -43,7 +44,7 @@ sentry_h7_upper_cmake/user_b2b.o: ..\UserMiddlewares\src\USER_B2B.c \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\projdefs.h \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\portable.h \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\deprecated_definitions.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\portable\RVDS\ARM_CM4F\portmacro.h \
+  ..\Middlewares\Third_Party\FreeRTOS\Source\portable\GCC\ARM_CM4F\portmacro.h \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\mpu_wrappers.h \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\task.h \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\list.h \

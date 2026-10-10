@@ -18,7 +18,11 @@ public:
 
 // 成员对象静态存在，不在运行期 new。
 RobotApplication::RobotApplication()
-    : profiler_(clock_)
+    : clock_()
+#if ROBOT_ENABLE_SNAPSHOT_DEMO
+    , snapshot_demo_(clock_)
+#endif
+    , profiler_(clock_)
 {
     // heartbeat_node：静态心跳节点，不产生硬件输出。
     static HeartbeatNode heartbeat_node;
@@ -69,6 +73,16 @@ robot::framework::PluginStatus RobotApplication::initialize()
         status = graph_.add(plan_demo_);
     }
 #endif
+#if ROBOT_ENABLE_SNAPSHOT_DEMO
+    if (status == robot::framework::PluginStatus::Ok) {
+        status = graph_.add(snapshot_demo_);
+    }
+#endif
+#if ROBOT_ENABLE_COMPARISON_DEMO
+    if (status == robot::framework::PluginStatus::Ok) {
+        status = graph_.add(comparison_demo_);
+    }
+#endif
     if (status == robot::framework::PluginStatus::Ok) {
         status = graph_.compile();
     }
@@ -84,6 +98,9 @@ robot::framework::PluginStatus RobotApplication::initialize()
     g_robot_debug.init_error = static_cast<uint32_t>(status);
     g_robot_debug.plan.plan_count = graph_.planCount();
     g_robot_debug.plan.failed_plan = graph_.failedPlan();
+#if ROBOT_ENABLE_SNAPSHOT_DEMO
+    g_robot_debug.snapshot.publish_enabled = 1U;
+#endif
     g_robot_debug.initialized = (status == robot::framework::PluginStatus::Ok) ? 1U : 0U;
     g_robot_debug.running = (status == robot::framework::PluginStatus::Ok) ? 1U : 0U;
 
@@ -111,6 +128,19 @@ robot::framework::ProcessResult RobotApplication::processFrame()
         ++g_robot_debug.plan.rejected_frames;
     }
 #endif
+#if ROBOT_ENABLE_SNAPSHOT_DEMO
+    snapshot_demo_.syncPublishEnabled(g_robot_debug.snapshot.publish_enabled != 0U); // 只在帧边界同步。
+#endif
+#if ROBOT_ENABLE_COMPARISON_DEMO
+    // 每个请求字段只读一次；跨字段同时修改时应先暂停调试器。
+    robot::diagnostics::ComparisonDemoControls comparison_controls;
+    comparison_controls.input_value = g_robot_debug.comparison.input_value;
+    comparison_controls.candidate_bias = g_robot_debug.comparison.candidate_bias;
+    comparison_controls.pause_candidate = g_robot_debug.comparison.pause_candidate != 0U;
+    comparison_controls.reset_all_request = g_robot_debug.comparison.reset_all_request;
+    comparison_controls.reset_candidate_request = g_robot_debug.comparison.reset_candidate_request;
+    comparison_demo_.applyControls(comparison_controls);
+#endif
     frame_.frame_id++;
     frame_.timestamp_us = clock_.nowUs();
     profiler_.beginFrame(frame_.frame_id, frame_.timestamp_us);
@@ -124,6 +154,12 @@ robot::framework::ProcessResult RobotApplication::processFrame()
 #endif
 #if ROBOT_ENABLE_PLAN_DEMO
     updatePlanDebug();
+#endif
+#if ROBOT_ENABLE_SNAPSHOT_DEMO
+    updateSnapshotDebug();
+#endif
+#if ROBOT_ENABLE_COMPARISON_DEMO
+    updateComparisonDebug();
 #endif
     frame_.timestamp_us = clock_.nowUs();
     profiler_.endFrame(frame_.timestamp_us);
@@ -231,6 +267,53 @@ void RobotApplication::updatePlanDebug()
     g_robot_debug.plan.frame_id = frame_.frame_id;
     copy_stats(g_robot_debug.plan.a, plan_demo_.a());
     copy_stats(g_robot_debug.plan.b, plan_demo_.b());
+}
+#endif
+
+#if ROBOT_ENABLE_SNAPSHOT_DEMO
+// 将异步邮箱的序号、年龄和状态复制到 Watch。
+void RobotApplication::updateSnapshotDebug()
+{
+    g_robot_debug.snapshot.frame_id = frame_.frame_id;
+    g_robot_debug.snapshot.sequence = snapshot_demo_.sequence();
+    g_robot_debug.snapshot.read_count = snapshot_demo_.readCount();
+    g_robot_debug.snapshot.age_us = snapshot_demo_.ageUs();
+    g_robot_debug.snapshot.status = static_cast<uint8_t>(snapshot_demo_.status());
+    g_robot_debug.snapshot.publish_enabled = snapshot_demo_.publishEnabled() ? 1U : 0U;
+}
+#endif
+
+#if ROBOT_ENABLE_COMPARISON_DEMO
+// 只复制诊断结果，不从任何一路结果反向修改计算状态。
+void RobotApplication::updateComparisonDebug()
+{
+    const auto& observation = comparison_demo_.observation();
+    auto& debug = g_robot_debug.comparison;
+    const auto copy_sample = [](volatile robot::platform::ComparisonSampleDebugSnapshot& destination,
+                                const robot::diagnostics::DemoComparisonSample& sample) {
+        destination.present = sample.present ? 1U : 0U;
+        destination.input_sequence = sample.key.input_sequence;
+        destination.sampled_at_us = sample.key.sampled_at_us;
+        destination.state_epoch = sample.key.state_epoch;
+        destination.step = sample.key.step;
+        for (uint8_t i = 0U; i < 2U; ++i) { destination.value[i] = sample.value[i]; }
+    };
+    copy_sample(debug.reference, observation.reference);
+    copy_sample(debug.candidate, observation.candidate);
+    debug.frame_id = observation.frame_id;
+    debug.applied_input_value = comparison_demo_.appliedInputValue();
+    debug.applied_candidate_bias = comparison_demo_.appliedCandidateBias();
+    debug.status = static_cast<uint8_t>(observation.result.status);
+    debug.difference_valid = (observation.result.status == robot::framework::ComparisonStatus::Equal
+        || observation.result.status == robot::framework::ComparisonStatus::Different) ? 1U : 0U;
+    for (uint8_t i = 0U; i < 2U; ++i) { debug.difference[i] = observation.result.difference[i]; }
+    debug.max_abs_difference = observation.result.max_abs_difference;
+    debug.historical_max_abs_difference = observation.max_abs_difference;
+    debug.equal_count = observation.equal_count;
+    debug.different_count = observation.different_count;
+    debug.unaligned_count = observation.unaligned_count;
+    debug.invalid_count = observation.invalid_count;
+    debug.rejected_frames = comparison_demo_.rejectedFrames();
 }
 #endif
 

@@ -57,6 +57,51 @@ struct BranchDebugSnapshot {
     BranchRouteDebugSnapshot routes[2]{}; // A/B 两条路线的统计。
 };
 
+// 单路算术结果及其输入/状态身份；present=0 时其余字段不表示有效结果。
+struct ComparisonSampleDebugSnapshot {
+    uint64_t sampled_at_us{0U};
+    uint32_t input_sequence{0U};
+    uint32_t state_epoch{0U};
+    uint32_t step{0U};
+    double value[2]{}; // [0] 有界累计值（候选含偏差），[1] 实际推进次数。
+    uint8_t present{0U};
+};
+
+// 通用算术演示：前五项可写，其余字段仅观察。
+struct ComparisonDebugSnapshot {
+    int32_t input_value{7}; // Watch 请求，合法范围 -1000..1000。
+    int32_t candidate_bias{0}; // Watch 输出偏差请求，合法范围 -1000..1000。
+    uint32_t reset_all_request{0U}; // 改为不同数值触发一次共同重置。
+    uint32_t reset_candidate_request{0U}; // 改为不同数值触发一次候选重置。
+    uint8_t pause_candidate{0U}; // 非 0 暂停候选，不补算漏帧。
+    int32_t applied_input_value{7}; // 最近接受的合法输入。
+    int32_t applied_candidate_bias{0}; // 最近接受的合法输出偏差。
+    uint32_t frame_id{0U};
+    ComparisonSampleDebugSnapshot reference{};
+    ComparisonSampleDebugSnapshot candidate{};
+    uint8_t status{0U}; // Missing=0, Unaligned=1, InvalidTolerance=2, NonFinite=3, Equal=4, Different=5。
+    uint8_t difference_valid{0U}; // 只有 Equal/Different 才能解释当前差值。
+    double difference[2]{}; // candidate - reference。
+    double max_abs_difference{0.0}; // 当前有效比较的最大绝对差。
+    double historical_max_abs_difference{0.0}; // 自启动以来，不随状态重置清零。
+    uint32_t equal_count{0U};
+    uint32_t different_count{0U};
+    uint32_t unaligned_count{0U};
+    uint32_t invalid_count{0U}; // 缺失/非法结果；调度跳过不计入执行次数。
+    uint32_t rejected_frames{0U}; // 输入或偏差非法的帧数，保留上次合法参数。
+};
+
+// 异步最新值邮箱观察；序号只在生产者发布时变化。
+struct SnapshotDebugSnapshot {
+    uint32_t frame_id{0U}; // 最近消费者帧号。
+    uint32_t sequence{0U}; // 最近发布序号。
+    uint32_t read_count{0U}; // 消费次数。
+    uint64_t age_us{0U}; // 最近样本年龄。
+    uint8_t status{0U}; // SnapshotStatus 数值。
+    uint8_t publish_enabled{1U}; // Watch 可写，0暂停发布。
+    uint16_t reserved{0U}; // 对齐保留。
+};
+
 // 执行计划演示；只有 requested_plan 是调试输入。
 struct PlanDebugSnapshot {
     uint32_t requested_plan{0U}; // Watch可写：0=A先B后，1=B先A后。
@@ -89,6 +134,8 @@ struct RobotDebugSnapshot {
     ChassisDebugSnapshot chassis{}; // 随全局 volatile 快照一起供 Watch 读取。
     BranchDebugSnapshot branch{}; // 条件分支选择入口及结果。
     PlanDebugSnapshot plan{}; // 执行顺序切换入口及结果。
+    SnapshotDebugSnapshot snapshot{}; // 异步快照年龄和序号。
+    ComparisonDebugSnapshot comparison{}; // 独立状态算术比较及请求入口。
 };
 
 } // namespace robot::platform

@@ -46,7 +46,7 @@ void Chassis_Init()
 
     // !舵从上往下看顺时针是正方向
 	chassis.motors[0].TurnOffset= -304.57  +0 + 180; //
-	chassis.motors[1].TurnOffset= -44.78 + 30 + 45 + 180; //       // 右前舵轮转向电机零偏(°) //
+	chassis.motors[1].TurnOffset= -44.78 + 30 + 45 + 180; //       // 右    前舵轮转向电机零偏(°) //
 	chassis.motors[2].TurnOffset= -119.49 + 30 + 90 + 15 + 180; //  //此处校准舵电机 正常加减30°的倍数   // 左后舵轮转向电机零偏(°) //  //此处校准舵电机 正常加减30°的倍数
 	chassis.motors[3].TurnOffset= -6.5 + 90 - 15 + 180; //         // 右后舵轮转向电机零偏(°) //
 
