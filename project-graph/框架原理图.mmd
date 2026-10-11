@@ -1,0 +1,51 @@
+flowchart TD
+
+    subgraph TYPES["① 基础类型 · PluginTypes.hpp（地基 · 零外部依赖）"]
+        direction LR
+        T1["PluginStatus<br/>组装/编译/生命周期 统一返回码"]
+        T2["ProcessResult<br/>Ok / NoNewData / OutputHeld / Degraded / Fault"]
+        T3["PluginState 状态机<br/>Created→Configured→Running→…→Stopped"]
+        T4["PluginHealth + Snapshot<br/>只读调试快照"]
+        T5["FrameContext<br/>frame_id · period_us · timestamp_us"]
+    end
+
+    subgraph PIPE["② 调度骨架 · PluginGraph（三个阶段）"]
+        direction TB
+        S1["① 组装 compose<br/>add · addDependency(delayed) · setBranch · addBranchDependency · setPlanCount"]
+        S2["② 编译 compile<br/>validate 校验 → 拓扑排序 compilePlan → frozen 冻结"]
+        S3["③ 执行 processFrame<br/>每 1 ms 一帧，按编译好的顺序依次跑节点"]
+        S1 --> S2 --> S3
+    end
+
+    subgraph NODE["③ 最小执行单元 · PluginNode（生命周期）"]
+        direction TB
+        N1["启动前各一次：compose → configure → start"]
+        N2["每帧：process(FrameContext)<br/>纯虚，必须实现"]
+        N3["帧边界通知：onEnter / onExit / onPlanChanged"]
+        N4["被跳过：onSkipped<br/>令自身输出失效"]
+        N5["停机：stop<br/>只改状态，不销毁对象"]
+        N1 --> N2 --> N5
+        N3 -.-> N2
+        N4 -.-> N2
+    end
+
+    subgraph PORTS["④ 数据传递 · Ports.hpp（端口 / 信号）"]
+        direction LR
+        D1["上游 process()"] -->|"publish(frame_id, value)"| D2["OutputPort<br/>单写者"] --> D3["FrameSignal<br/>值 + 帧号 + valid"] -->|"read()"| D4["InputPort<br/>多读者"] --> D5["下游 process()"]
+    end
+
+    subgraph ADV["⑤ 高级调度原理"]
+        direction TB
+        E1["执行计划 Plan<br/>同一批节点多套拓扑序；帧首 latchPlan 锁存"]
+        E2["跨帧依赖 delayed=true<br/>读上一周期，不参与本帧排序"]
+        E3["分支 BranchSelector + setBranch<br/>条件被后代继承、祖先相与"]
+        E4["汇合 addBranchDependency + BranchMergeNode<br/>可忽略未选中分支，校验帧号一致"]
+        E5["依赖就绪 dependenciesReady<br/>前驱都执行过才跑"]
+        E6["子图摊平 composeNode<br/>组合节点 children 递归并入根图"]
+        E7["静态数组 · 无堆分配<br/>容量由 robot_build_config.h 宏给定"]
+    end
+
+    T5 -->|"帧上下文"| S3
+    S3 -->|"驱动节点"| N2
+    N2 -->|"收发数据"| D1
+    S2 -->|"编译期裁决"| E1

@@ -11,4 +11,4 @@
 
 // 使用未修饰的 C 符号名（extern "C"），避免 C++ 命名空间 / 名字修饰导致调试器无法解析该符号。
 // 这里的 volatile 与 DebugSnapshot.hpp 中的类型定义保持一致，确保编译器不会优化掉对该实例的读写。
-extern "C" volatile robot::platform::RobotDebugSnapshot g_robot_debug{};
+extern "C" volatile robot::platform::robot_debug_snapshot g_robot_debug{};

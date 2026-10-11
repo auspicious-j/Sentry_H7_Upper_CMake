@@ -1,8 +1,8 @@
-#ifndef ROBOT_NODE_TRANSITION_CONTEXT_HPP
-#define ROBOT_NODE_TRANSITION_CONTEXT_HPP
+#ifndef robot_node_transition_context_hpp
+#define robot_node_transition_context_hpp
 
 // ============================================================================
-// NodeTransitionContext.hpp —— 节点“帧过渡（transition）”上下文
+// node_transition_context.hpp —— 节点“帧过渡（transition）”上下文
 // ----------------------------------------------------------------------------
 // 作用：插件框架会在每一帧的边界，通知各节点“帧切换了 / 计划变了 / 要停下了”。
 //       本结构体就是把这次通知所需的信息打包传给节点，节点据此决定如何从上一帧
@@ -26,20 +26,20 @@ namespace robot::framework {
 
 // 帧边界生命周期通知；此时不能假设本帧输入已经生产。
 // 各字段含义见下方成员注释。
-struct NodeTransitionContext {
-    // 当前帧号；若由整图 stopAll 触发退出，则填入“最近一帧”的帧号。
-    uint32_t frame_id{0U}; // 当前帧号；stopAll 使用最近一帧。
+struct node_transition_context {
+    // 当前帧号；若由整图 stop_all 触发退出，则填入“最近一帧”的帧号。
+    uint32_t frame_id{0U}; // 当前帧号；stop_all 使用最近一帧。
     // 本帧开始的时间戳，单位微秒（us）；默认 0 表示“未提供”。
     uint64_t timestamp_us{0U}; // 帧开始时间，微秒。
     // 切换之前所使用的计划编号；默认 0 表示“无 / 初始值”。
-    uint16_t previous_plan{0U}; // 切换前计划。
+    uint16_t previous_plan_id{0U}; // 切换前计划。
     // 本帧锁存的计划编号（本帧内保持不变）；默认 0 表示“无 / 初始值”。
-    uint16_t current_plan{0U}; // 本帧锁存计划。
-    // 当前计划的版本号，每次计划变更会自增，便于检测“计划是否换过”。
-    uint32_t plan_generation{0U}; // 当前计划版本。
-    // 是否由整图 stopAll（停止全部节点）触发退出；true 表示本次通知属于停机流程。
-    bool stopping{false}; // 是否由整图 stopAll 触发退出。
+    uint16_t current_plan_id{0U}; // 本帧锁存计划。
+    // 计划切换的累计次数，每次计划变更会自增，便于检测“计划是否换过”。
+    uint32_t plan_switch_count{0U}; // 计划切换累计次数。
+    // 是否由整图 stop_all（停止全部节点）触发退出；true 表示本次通知属于停机流程。
+    bool is_stopping{false}; // 是否由整图 stop_all 触发退出。
 };
 
 } // namespace robot::framework
-#endif // ROBOT_NODE_TRANSITION_CONTEXT_HPP
+#endif // robot_node_transition_context_hpp

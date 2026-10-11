@@ -1,7 +1,7 @@
 ﻿/**
  ******************************************************************************
- * @file    Stm32Clock.cpp
- * @brief   Stm32Clock（STM32 时钟后端）的实现：直接读取 bsp_dwt 提供的
+ * @file    stm32_clock.cpp
+ * @brief   stm32_clock（STM32 时钟后端）的实现：直接读取 bsp_dwt 提供的
  *          单调微秒时间轴。
  *
  * 时间来源与精度：
@@ -21,12 +21,12 @@
 
 namespace robot::platform::stm32 {
 
-// nowUs()：返回自 DWT 计时起点以来的单调微秒数。
+// now_us()：返回自 DWT 计时起点以来的单调微秒数。
 // 实现：转发调用 DWT_GetTimeline_us()，该函数内部读取 CYCCNT、处理 32 位
 // 回绕并拼接为 64 位计数，再换算成微秒后返回。
 // 单位：微秒（us）。单调（不会因回绕而跳变），适合求两次调用之差作为时间间隔。
 // DWT 用于高精度测量，不用于替代 FreeRTOS 任务调度。
-uint64_t Stm32Clock::nowUs() const
+uint64_t stm32_clock::now_us() const
 {
     return DWT_GetTimeline_us();
 }

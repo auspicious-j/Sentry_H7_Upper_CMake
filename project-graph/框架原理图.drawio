@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="32.4.1">
+  <diagram name="PluginGraph-Framework-Principles" id="fw-principles">
+    <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1980" pageHeight="1080" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="NOTE" value="用法：直接单击节点里的文字，即可用 VSCode 打开对应源文件（链接为仓库相对路径，工程挪位置也能用；需装 File Ref Tags 插件）。" style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="1880" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="G2" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;② 调度骨架 · PluginGraph（三个阶段）&lt;/a&gt;" style="swimlane;startSize=30;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.hpp">
+          <mxGeometry x="40" y="100" width="400" height="322" as="geometry" />
+        </mxCell>
+        <mxCell id="S1" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;① 组装 compose&lt;br&gt;add · addDependency(delayed) · setBranch&lt;br&gt;addBranchDependency · setPlanCount&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="G2" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.hpp">
+          <mxGeometry x="30" y="40" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="S2" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;② 编译 compile&lt;br&gt;validate 校验 → 拓扑排序 compilePlan&lt;br&gt;→ frozen 冻结（运行期不加锁）&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="G2" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.hpp">
+          <mxGeometry x="30" y="134" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="S3" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.cpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;③ 执行 processFrame&lt;br&gt;每 1 ms 一帧，按编译好的顺序依次跑节点&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="G2" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.cpp">
+          <mxGeometry x="30" y="228" width="340" height="64" as="geometry" />
+        </mxCell>
+
+        <mxCell id="G3" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginNode.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;③ 最小执行单元 · PluginNode（生命周期）&lt;/a&gt;" style="swimlane;startSize=30;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginNode.hpp">
+          <mxGeometry x="480" y="100" width="400" height="510" as="geometry" />
+        </mxCell>
+        <mxCell id="N1" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginNode.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;启动前各一次&lt;br&gt;compose → configure → start&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="G3" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginNode.hpp">
+          <mxGeometry x="30" y="40" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="N2" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginNode.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;每帧：process(FrameContext)&lt;br&gt;纯虚，必须实现&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="G3" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginNode.hpp">
+          <mxGeometry x="30" y="134" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="N3" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/NodeTransitionContext.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;帧边界通知&lt;br&gt;onEnter / onExit / onPlanChanged&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="G3" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/NodeTransitionContext.hpp">
+          <mxGeometry x="30" y="228" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="N4" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginNode.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;被跳过：onSkipped&lt;br&gt;令自身输出失效&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="G3" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginNode.hpp">
+          <mxGeometry x="30" y="322" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="N5" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginNode.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;停机：stop&lt;br&gt;只改状态，不销毁对象&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="G3" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginNode.hpp">
+          <mxGeometry x="30" y="416" width="340" height="64" as="geometry" />
+        </mxCell>
+
+        <mxCell id="G4" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/Ports.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;④ 数据传递 · Ports.hpp（端口 / 信号）&lt;/a&gt;" style="swimlane;startSize=30;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/Ports.hpp">
+          <mxGeometry x="920" y="100" width="400" height="510" as="geometry" />
+        </mxCell>
+        <mxCell id="D1" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/Ports.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;上游节点 process()&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="G4" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/Ports.hpp">
+          <mxGeometry x="30" y="40" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="D2" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/Ports.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;OutputPort&lt;br&gt;单写者：谁 bind 谁写&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="G4" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/Ports.hpp">
+          <mxGeometry x="30" y="134" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="D3" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/Ports.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;FrameSignal&lt;br&gt;值 + 写入帧号 + valid&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="G4" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/Ports.hpp">
+          <mxGeometry x="30" y="228" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="D4" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/Ports.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;InputPort&lt;br&gt;多读者：同一信号可多节点读&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="G4" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/Ports.hpp">
+          <mxGeometry x="30" y="322" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="D5" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/Ports.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;下游节点 process()&lt;br&gt;validForFrame 按帧号校验，丢弃旧值&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="G4" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/Ports.hpp">
+          <mxGeometry x="30" y="416" width="340" height="64" as="geometry" />
+        </mxCell>
+
+        <mxCell id="G5" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;⑤ 高级调度原理（编译期裁决的语义）&lt;/a&gt;" style="swimlane;startSize=30;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.hpp">
+          <mxGeometry x="1360" y="100" width="400" height="698" as="geometry" />
+        </mxCell>
+        <mxCell id="E1" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;执行计划 Plan&lt;br&gt;同一批节点多套拓扑序；帧首 latchPlan 锁存&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="G5" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.hpp">
+          <mxGeometry x="30" y="40" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="E2" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;跨帧依赖 delayed=true&lt;br&gt;读上一周期，不参与本帧排序&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="G5" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.hpp">
+          <mxGeometry x="30" y="134" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="E3" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/BranchSelector.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;分支 BranchSelector + setBranch&lt;br&gt;条件被后代继承、祖先相与&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="G5" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/BranchSelector.hpp">
+          <mxGeometry x="30" y="228" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="E4" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/BranchMergeNode.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;汇合 addBranchDependency + BranchMergeNode&lt;br&gt;可忽略未选中分支，校验帧号一致&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="G5" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/BranchMergeNode.hpp">
+          <mxGeometry x="30" y="322" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="E5" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.cpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;依赖就绪 dependenciesReady&lt;br&gt;前驱都执行过才跑&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="G5" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.cpp">
+          <mxGeometry x="30" y="416" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="E6" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.cpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;子图摊平 composeNode&lt;br&gt;组合节点 children 递归并入根图&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="G5" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginGraph.cpp">
+          <mxGeometry x="30" y="510" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="E7" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=Config/robot_build_config.h&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;静态数组 · 无堆分配&lt;br&gt;容量由 robot_build_config.h 宏给定&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="G5" link="vscode://lirentech.file-ref-tags?filePath=Config/robot_build_config.h">
+          <mxGeometry x="30" y="604" width="340" height="64" as="geometry" />
+        </mxCell>
+
+        <mxCell id="G1" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginTypes.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;① 基础类型 · PluginTypes.hpp（地基 · 零外部依赖，被上面各层共用）&lt;/a&gt;" style="swimlane;startSize=30;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginTypes.hpp">
+          <mxGeometry x="40" y="860" width="1880" height="134" as="geometry" />
+        </mxCell>
+        <mxCell id="T1" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginTypes.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;PluginStatus&lt;br&gt;组装/编译统一返回码&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="G1" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginTypes.hpp">
+          <mxGeometry x="30" y="50" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="T2" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginTypes.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;ProcessResult&lt;br&gt;Ok/NoNewData/OutputHeld/Degraded/Fault&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="G1" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginTypes.hpp">
+          <mxGeometry x="400" y="50" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="T3" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginTypes.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;PluginState 状态机&lt;br&gt;Created→Configured→Running→…→Stopped&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="G1" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginTypes.hpp">
+          <mxGeometry x="770" y="50" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="T4" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginTypes.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;PluginHealth + Snapshot&lt;br&gt;只读调试快照&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="G1" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginTypes.hpp">
+          <mxGeometry x="1140" y="50" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="T5" value="&lt;a href=&quot;vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginTypes.hpp&quot; style=&quot;color:#1f1f1f;text-decoration:none;&quot;&gt;FrameContext&lt;br&gt;frame_id · period_us · timestamp_us&lt;/a&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="G1" link="vscode://lirentech.file-ref-tags?filePath=ApplicationCpp/Framework/PluginTypes.hpp">
+          <mxGeometry x="1510" y="50" width="340" height="64" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="S1" target="S2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="结构可改 → 只读检查后冻结" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="S2" target="S3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="processFrame 驱动" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="S3" target="N1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="每帧" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="N1" target="N2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="停机" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="N2" target="N5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="激活 / 退出 / 换计划" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;" edge="1" parent="1" source="N3" target="N2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="默认空实现，防陈旧数据需重写" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;" edge="1" parent="1" source="N4" target="N2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="节点用它收发数据" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="N2" target="D1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="publish(frame_id, value)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="D1" target="D2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="D2" target="D3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" value="read()" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="D3" target="D4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="D4" target="D5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

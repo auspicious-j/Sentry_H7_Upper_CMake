@@ -1,5 +1,5 @@
-#ifndef ROBOT_CHASSIS_FEEDBACK_BRIDGE_H
-#define ROBOT_CHASSIS_FEEDBACK_BRIDGE_H
+#ifndef robot_chassis_feedback_bridge_h
+#define robot_chassis_feedback_bridge_h
 
 #include <stdint.h>
 
@@ -53,4 +53,4 @@ void RobotChassisFeedback_Read(RobotChassisFeedbackSnapshot* destination);
 }
 #endif
 
-#endif // ROBOT_CHASSIS_FEEDBACK_BRIDGE_H
+#endif // robot_chassis_feedback_bridge_h

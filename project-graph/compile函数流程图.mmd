@@ -1,0 +1,33 @@
+flowchart TD
+    START(["compile() 入口"]) --> FROZEN{"frozen_ ?<br/>图已冻结"}
+    FROZEN -->|"是"| RET_FROZEN(["return Frozen"])
+    FROZEN -->|"否"| ATTEMPT{"compile_attempted_ ?<br/>已编译过"}
+    ATTEMPT -->|"是"| RET_OLD(["return compile_status_<br/>返回旧结果"])
+    ATTEMPT -->|"否"| MARK["compile_attempted_ = true"]
+
+    MARK --> COMPOSE["compose()<br/>递归展开全部子图"]
+    COMPOSE --> OK1{"成功?"}
+    OK1 -->|"否"| RET_ERR1(["return 错误码"])
+    OK1 -->|"是"| VALID["validate()<br/>全图一致性校验"]
+    VALID --> OK2{"成功?"}
+    OK2 -->|"否"| RET_ERR2(["return 错误码"])
+    OK2 -->|"是"| RESET["selector_count_ = 0"]
+    RESET --> COLLECT["遍历节点<br/>收集并去重分支选择器"]
+    COLLECT --> SELOK{"选择器<br/>configured 且<br/>contains(route)?"}
+    SELOK -->|"否"| RET_SEL(["return ConfigurationFault"])
+    SELOK -->|"是"| CACHE["遍历依赖边<br/>缓存 before_slot / after_slot"]
+    CACHE --> PLANLOOP["for plan = 0 .. plan_count_-1"]
+    PLANLOOP --> TOPSORT["compilePlan(plan)<br/>Kahn 拓扑排序"]
+    TOPSORT --> POK{"本计划成功?"}
+    POK -->|"否"| PFAIL["failed_plan_ = plan<br/>execution_count_ = 0"]
+    PFAIL --> RET_ERR3(["return 错误码"])
+    POK -->|"是"| MORE{"还有下一个计划?"}
+    MORE -->|"是"| PLANLOOP
+    MORE -->|"否"| FREEZE["冻结全部子图<br/>children().frozen_ = true"]
+    FREEZE --> FINAL["execution_count_ = node_count_<br/>compiled_ = true<br/>frozen_ = true"]
+    FINAL --> RET_OK(["return Ok"])
+
+    classDef ret fill:#fde0e0,stroke:#c0392b,color:#7b241c;
+    classDef step fill:#e8f4fd,stroke:#2c6fb3,color:#14405e;
+    class RET_FROZEN,RET_OLD,RET_ERR1,RET_ERR2,RET_SEL,RET_ERR3,RET_OK ret;
+    class MARK,COMPOSE,VALID,RESET,COLLECT,CACHE,PLANLOOP,TOPSORT,PFAIL,FREEZE,FINAL step;

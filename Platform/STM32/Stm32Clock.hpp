@@ -1,11 +1,11 @@
 ﻿/**
  ******************************************************************************
- * @file    Stm32Clock.hpp
+ * @file    stm32_clock.hpp
  * @brief   STM32 平台时钟后端：把 Cortex-M 内核的 DWT 周期计数器封装成
- *          IClock 接口所要求的“单调微秒时钟”。
+ *          i_clock 接口所要求的“单调微秒时钟”。
  *
  * 设计要点：
- *  - 平台无关的上层（ApplicationCpp）只依赖 robot::platform::IClock；
+ *  - 平台无关的上层（ApplicationCpp）只依赖 robot::platform::i_clock；
  *    本文件是 STM32 这一侧的具体实现（后端）。将来迁到 Linux 时，只要换成
  *    另一个基于 clock_gettime(CLOCK_MONOTONIC) 的后端即可，上层代码不必改动。
  *  - “单调时钟”指读数只增不减，只用来测量两个时刻之间的间隔（例如控制周期
@@ -18,8 +18,8 @@
  ******************************************************************************
  */
 
-#ifndef ROBOT_STM32_CLOCK_HPP
-#define ROBOT_STM32_CLOCK_HPP
+#ifndef robot_stm32_clock_hpp
+#define robot_stm32_clock_hpp
 
 #include "../../ApplicationCpp/Platform/IClock.hpp"
 
@@ -28,20 +28,20 @@ namespace robot::platform::stm32 {
 /**
  * STM32 时钟后端（具体实现类）。
  *
- * 继承 robot::platform::IClock，为其纯虚接口 nowUs() 提供 STM32 实现。
- * final 表示不再被继承；本类无状态（不持有任何成员），nowUs() 为 const，
+ * 继承 robot::platform::i_clock，为其纯虚接口 now_us() 提供 STM32 实现。
+ * final 表示不再被继承；本类无状态（不持有任何成员），now_us() 为 const，
  * 因此多任务并发读取时无需额外加锁，仅依赖 DWT 硬件计数器。
  *
  * 注意：DWT 初始化仍由现有 CubeMX 用户代码负责，本类假定 DWT 已就绪。
  */
-class Stm32Clock final : public robot::platform::IClock {
+class stm32_clock final : public robot::platform::i_clock {
 public:
     // 返回自 DWT 计时起点以来的单调微秒数。
     // 单位：微秒（us）。返回值单调不减（除 64 位计数极小概率回绕外），
     // 适合计算时间间隔，不适合表示挂钟时间。
-    uint64_t nowUs() const override;
+    uint64_t now_us() const override;
 };
 
 } // namespace robot::platform::stm32
 
-#endif /* ROBOT_STM32_CLOCK_HPP */
+#endif /* robot_stm32_clock_hpp */

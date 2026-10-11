@@ -1,13 +1,13 @@
-﻿#ifndef ROBOT_FRAME_CONTEXT_HPP
-#define ROBOT_FRAME_CONTEXT_HPP
+﻿#ifndef robot_frame_context_hpp
+#define robot_frame_context_hpp
 
 // ============================================================================
-// FrameContext.hpp —— 帧级上下文头文件（转发 / 占位）
+// frame_context.hpp —— 帧级上下文头文件（转发 / 占位）
 // ----------------------------------------------------------------------------
 // 作用：为插件框架的“一帧”提供统一的时间上下文（帧号 frame_id、周期 period_us、
-//       时间戳 timestamp_us），整帧内所有节点共享同一个 FrameContext。
+//       时间戳 timestamp_us），整帧内所有节点共享同一个 frame_context。
 //
-// 当前实现：结构体 FrameContext 暂时定义在 PluginTypes.hpp 中，本头文件只是把它
+// 当前实现：结构体 frame_context 暂时定义在 PluginTypes.hpp 中，本头文件只是把它
 //           “转发”出来。这样做是为了兼容早期大量直接 #include 本文件的代码，
 //           同时保留一个专门的落点：以后若要给帧级输入扩展新字段（例如电池电压、
 //           传感器原始数据等），可以在此处单独定义，而不必改动 PluginTypes.hpp。
@@ -19,7 +19,7 @@
 // 给初学者的提示：本文件没有任何运行代码，只负责“把类型暴露出来”，改动它不影响行为。
 // ============================================================================
 
-// FrameContext 目前由 PluginTypes.hpp 定义；单独保留此头文件，方便以后扩展帧级输入。
+// frame_context 目前由 PluginTypes.hpp 定义；单独保留此头文件，方便以后扩展帧级输入。
 #include "PluginTypes.hpp"
 
-#endif /* ROBOT_FRAME_CONTEXT_HPP */
+#endif /* robot_frame_context_hpp */

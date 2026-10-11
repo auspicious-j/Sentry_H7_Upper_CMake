@@ -6,23 +6,23 @@
 
 ## 实施步骤
 
-- [x] 保存当前基线，新增 NodeTransitionContext 和 PluginNode 的 onEnter/onExit/onPlanChanged 默认空回调。
-- [x] 帧开始锁存路线/计划后计算激活集合：条件满足且节点与祖先处于 Running/Degraded。不将输入短暂未就绪当作分支退出。
+- [x] 保存当前基线，新增 node_transition_context 和 plugin_node 的 on_enter/on_exit/on_plan_changed 默认空回调。
+- [x] 帧开始锁存分支编号/计划后计算激活集合：条件满足且节点与祖先处于 running/degraded。不将输入短暂未就绪当作分支退出。
 - [x] 所有退出先按上一计划逆序通知；进入和继续激活者的计划切换按新计划顺序通知；之后才执行 process。
 - [x] 首次激活仅进入一次；共享节点不随其他分支切换重复进入；同时切换分支和计划时，新进入者仅收到进入通知，退出者仅收到退出通知，继续激活者收到计划切换。
-- [x] 记录 enter_count/exit_count/plan_change_count/active。处理中的故障/禁用在本帧阻止后续相关业务，退出通知在下一帧边界发出。
-- [x] stopAll 对仍激活节点先退出再调用旧 stop，重复 stop 不重复退出；通知带 stopping 标志和最近帧信息。
-- [x] 防止帧/回调重入修改当前执行；仅同一执行线程调用，回调不能阻塞或直接重配图。回调内合法 requestPlan/request 只影响后续帧。
-- [x] 演示算术节点仅在 onEnter 中清零“本次激活执行次数”，不改变22/27算术结果或任意硬件输出。Watch 增加生命周期计数和每次激活次数。
+- [x] 记录 enter_count/exit_count/plan_change_count/is_active。处理中的故障/禁用在本帧阻止后续相关业务，退出通知在下一帧边界发出。
+- [x] stop_all 对仍激活节点先退出再调用旧 stop，重复 stop 不重复退出；通知带 is_stopping 标志和最近帧信息。
+- [x] 防止帧/回调重入修改当前执行；仅同一执行线程调用，回调不能阻塞或直接重配图。回调内合法 request_plan/request 只影响后续帧。
+- [x] 演示算术节点仅在 on_enter 中清零“本次激活执行次数”，不改变22/27算术结果或任意硬件输出。Watch 增加生命周期计数和每次激活次数。
 - [x] 更新文档、静态检查与独立只读审查后交给用户 Keil 编译，不运行编译/主机测试/仿真。
 
 ## 语义边界
 
-激活表示本帧进入了路线且生命周期状态可运行，不保证本帧输入齐备或 process 成功。输入等待/NoNewData 不触发反复退出进入。
+激活表示本帧进入了分支编号且生命周期状态可运行，不保证本帧输入齐备或 process 成功。输入等待/no_new_data 不触发反复退出进入。
 所有节点共享同一接口；祖先分支条件与状态影响子节点。
 通知执行于首个 process 前；回调只管理自身状态，不假设本帧端口数据已生产。
-onEnter 内自报故障不撤销本次进入记录；业务执行检查状态，下一帧通知退出。状态锁存后回调不得修改其他节点的生命周期状态。
-帧内 stopAll 不立即停止/不排队，调用方应在帧外管理启停；configure/start 在帧内返回 InvalidState，递归 processFrame 返回 Fault。
+on_enter 内自报故障不撤销本次进入记录；业务执行检查状态，下一帧通知退出。状态锁存后回调不得修改其他节点的生命周期状态。
+帧内 stop_all 不立即停止/不排队，调用方应在帧外管理启停；configure/start 在帧内返回 invalid_state，递归 process_frame 返回 fault。
 当前不实现异步推理取消或自动回滚业务状态；这里只提供扩展通知。
 
 ## 用户后续观测

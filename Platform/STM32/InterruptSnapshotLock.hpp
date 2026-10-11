@@ -1,6 +1,6 @@
 ﻿/* ============================================================================
- * 文件：InterruptSnapshotLock.hpp
- * 作用：为单核 STM32 平台提供“短快照”临界区锁，实现框架的 ISnapshotLock 接口，
+ * 文件：interrupt_snapshot_lock.hpp
+ * 作用：为单核 STM32 平台提供“短快照”临界区锁，实现框架的 i_snapshot_lock 接口，
  *       供快照邮箱(SnapshotMailbox)在复制共享数据时独占 CPU。
  * 原理：Cortex-M 只有一条执行流，靠 PRIMASK 屏蔽所有可屏蔽中断即可构成临界区。
  *       加锁时保存并屏蔽，解锁时精确恢复保存值，避免破坏外层已有的屏蔽状态。
@@ -10,8 +10,8 @@
  *       cmsis_gcc.h），该选择逻辑极其关键，请勿改动其 #include。
  * ========================================================================== */
 
-#ifndef ROBOT_STM32_INTERRUPT_SNAPSHOT_LOCK_HPP
-#define ROBOT_STM32_INTERRUPT_SNAPSHOT_LOCK_HPP
+#ifndef robot_stm32_interrupt_snapshot_lock_hpp
+#define robot_stm32_interrupt_snapshot_lock_hpp
 
 #if defined(__ARMCC_VERSION)
 #include "cmsis_armclang.h"
@@ -23,9 +23,9 @@
 namespace robot::platform::stm32 {
 
 // 单核 STM32 的短快照临界区；只保护复制，不做计算或阻塞。
-// 继承 robot::framework::ISnapshotLock，是框架锁接口的平台实现；
+// 继承 robot::framework::i_snapshot_lock，是框架锁接口的平台实现；
 // final 表示不再被继承，便于编译器内联 lock()/unlock() 降低开销。
-class InterruptSnapshotLock final : public robot::framework::ISnapshotLock {
+class interrupt_snapshot_lock final : public robot::framework::i_snapshot_lock {
 public:
     // lock()：保存当前 PRIMASK 并进入临界区。
     // PRIMASK 是 Cortex-M 的中断屏蔽位：置 1 后，除 NMI 与 HardFault 之外的所有
@@ -59,5 +59,5 @@ private:
 };
 
 } // namespace robot::platform::stm32
-#endif // ROBOT_STM32_INTERRUPT_SNAPSHOT_LOCK_HPP
+#endif // robot_stm32_interrupt_snapshot_lock_hpp
 

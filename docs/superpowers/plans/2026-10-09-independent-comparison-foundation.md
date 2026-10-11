@@ -8,16 +8,16 @@
 
 ## 设计
 
-1. `evaluateSnapshot()` 只判断传入的稳定副本。消费者复制一次、再读取当前时刻并判断同一份数据，避免值/序号和新鲜度来自不同发布。
-2. 图执行器只为实际调用的 `process()` 配对调用 `beginNode/endNode`，跳过/阻塞不计为执行；帧统计仍包含图调度和应用 Debug 汇总。
+1. `evaluate_snapshot()` 只判断传入的稳定副本。消费者复制一次、再读取当前时刻并判断同一份数据，避免值/序号和新鲜度来自不同发布。
+2. 图执行器只为实际调用的 `process()` 配对调用 `begin_node/end_node`，跳过/阻塞不计为执行；帧统计仍包含图调度和应用 Debug 汇总。
 3. `OutputComparison.hpp` 定义纯数值样本和纯函数。只有输入序号、采样时间、状态起始版本和计算步数一致的两个结果才能比较。缺失、身份不匹配、非有限数及非法容差分别返回状态。
 4. 比较函数只读双方结果，不调用任何算法、不复制对方 PID/状态、不发送硬件命令。它也不自动保证外部两套算法状态独立；调用者必须满足该前提。
 
 ## 修改范围
 
 - `ApplicationCpp/Framework/SnapshotMailbox.hpp`：增加可独立判断副本的新鲜度函数，兼容原 `status()`。
-- `ApplicationCpp/Nodes/Diagnostics/SnapshotDemoNode.cpp`：消费者一次复制后判断。
-- `ApplicationCpp/Framework/PluginGraph.cpp`：恢复已有性能接口调用。
+- `ApplicationCpp/Nodes/Diagnostics/snapshot_demo_node.cpp`：消费者一次复制后判断。
+- `ApplicationCpp/Framework/plugin_graph.cpp`：恢复已有性能接口调用。
 - `ApplicationCpp/Framework/OutputComparison.hpp`：新增纯数值对比契约。
 - `checks/FrameworkContractChecks.cpp`：目标编译器可执行的编译期契约检查，不引入仿真或主机运行器。
 - 当前相关 README、讨论记录、快照计划、进度文档：同步状态和适用范围。

@@ -8,27 +8,27 @@
 ## 工作步骤
 
 - [x] 保存当前基线；增加固定计划容量宏及演示开关。
-- [x] PluginGraph 增加 setPlanCount / addPlanDependency / requestPlan / activePlan 等接口。普通依赖与分支汇合依赖默认所有计划生效；计划专属边使用明确编号。
+- [x] plugin_graph 增加 set_plan_count / add_plan_dependency / request_plan / active_plan 等接口。普通依赖与分支汇合依赖默认所有计划生效；计划专属边使用明确编号。
 - [x] 启动时展开所有节点，缓存边端点，逐计划拓扑排序；任何计划验证失败均保持 compiled=false。已冻结子图不能后改计划条件。
 - [x] 运行期锁存请求、按所选预编译顺序执行；依赖检查只使用本计划的边。非法请求保留当前计划。执行计数不因切换而清零。
 - [x] 启动/停止沿计划0固定顺序与逆序；切换不隐式调用 start/stop 或清理业务状态。所有计划节点集合相同，不在任务执行中重新排序。
-- [x] NodeExecutionStats 增加本帧实际执行序号。演示使用两个无硬件顺序探针节点，计划0 A先B后，计划1 B先A后；借助执行序号观察，避免把顺序与互相读取旧数据混为一谈。
+- [x] node_execution_stats 增加本帧实际执行序号。演示使用两个无硬件顺序探针节点，计划0 A先B后，计划1 B先A后；借助执行序号观察，避免把顺序与互相读取旧数据混为一谈。
 - [x] 应用层接入 g_robot_debug.plan：请求/当前计划、计划数、切换次数、版本、失败计划、节点执行顺序及计数；更新 Keil 工程及文档。
 - [x] 静态检查并独立只读审查；不运行编译/仿真/主机测试。完成后交给用户编译，编译确认后保存到 GitHub。
 
 ## 具体接口
 
-`setPlanCount(count)` 只允许启动组装阶段，由根图声明全局计划数量（默认1）。
-`addPlanDependency(before, after, plan)` 声明某计划特有的顺序边；子图可引用根图计划编号。
-`addDependency` / `addBranchDependency` 保持原语义，属于所有计划。
-`requestPlan(plan)` 只由所属执行任务调用，将合法请求留给下一帧锁存。
-每计划包含所有已注册节点，分支条件仍可跳过未选路线；数据端口不因计划切换自动重连。
+`set_plan_count(count)` 只允许启动组装阶段，由根图声明全局计划数量（默认1）。
+`add_plan_dependency(before, after, plan)` 声明某计划特有的顺序边；子图可引用根图计划编号。
+`add_dependency` / `add_branch_dependency` 保持原语义，属于所有计划。
+`request_plan(plan)` 只由所属执行任务调用，将合法请求留给下一帧锁存。
+每计划包含所有已注册节点，分支条件仍可跳过未选分支编号；数据端口不因计划切换自动重连。
 如果不同计划要求不同数据来源，调用者必须显式适配输入，不能仅靠交换调用顺序改变数据含义。
 
 ## 验收预期
 
 默认底盘观察、分支示例和计划示例全开：17节点，9条声明边（每计划有效8条），2个计划。
-Watch 的 requested_plan=0/1 时 A/B 的 frame_order 大小关系反转，两个 execution_count 均每帧增长一次；上一板块分支选择仍独立有效。
+Watch 的 requested_id=0/1 时 A/B 的 frame_order 大小关系反转，两个 execution_count 均每帧增长一次；上一板块分支选择仍独立有效。
 本板块未提供运行期任意重连、跨线程请求、节点重置/进入退出回调和模型异步请求取消。
 
 

@@ -1,8 +1,8 @@
-﻿#ifndef ROBOT_FRAME_PROFILER_HPP
-#define ROBOT_FRAME_PROFILER_HPP
+﻿#ifndef robot_frame_profiler_hpp
+#define robot_frame_profiler_hpp
 
 // ============================================================================
-// IProfiler.hpp —— 性能探针（profiler）抽象接口
+// i_profiler.hpp —— 性能探针（profiler）抽象接口
 // ----------------------------------------------------------------------------
 // 作用：给插件框架提供“计时打点”能力，用来统计每一帧、每个节点分别耗时多久，
 //       便于排查机器人上到底是哪个环节拖慢了控制周期。
@@ -27,27 +27,27 @@
 namespace robot::framework {
 
 // 性能探针接口。插件图只依赖抽象接口，具体计时器由 STM32 平台实现。
-class IProfiler {
+class i_profiler {
 public:
     // 虚析构保证接口指针销毁派生对象安全（通过基类指针 delete 派生对象时能正确析构）。
-    virtual ~IProfiler() = default;
+    virtual ~i_profiler() = default;
     // 记录一帧开始。
     // 参数 frame_id      ：帧号，与业务帧号一致，用于把统计结果对应到具体某一帧。
     // 参数 timestamp_us  ：本帧开始的时间戳，单位微秒（us）。
-    virtual void beginFrame(uint32_t frame_id, uint64_t timestamp_us) = 0;
+    virtual void begin_frame(uint32_t frame_id, uint64_t timestamp_us) = 0;
     // 记录某个节点开始执行。
     // 参数 id：节点 ID，用于区分是哪个节点的耗时。
-    // 注意：实现应在此时“实时读取时钟”，而不是复用 beginFrame 传入的时间，
+    // 注意：实现应在此时“实时读取时钟”，而不是复用 begin_frame 传入的时间，
     //       否则会把整帧的起始时间误当作该节点的起始时间，导致统计错误。
-    virtual void beginNode(PluginId id) = 0;
-    // 记录当前节点结束（与最近一次 beginNode 配对，内部实时读时钟以算出该节点耗时）。
-    virtual void endNode() = 0;
+    virtual void begin_node(plugin_id id) = 0;
+    // 记录当前节点结束（与最近一次 begin_node 配对，内部实时读时钟以算出该节点耗时）。
+    virtual void end_node() = 0;
     // 记录一帧结束。
-    // 参数 timestamp_us：本帧结束的时间戳，单位微秒（us）；与 beginFrame 配合可得到整帧耗时。
-    virtual void endFrame(uint64_t timestamp_us) = 0;
+    // 参数 timestamp_us：本帧结束的时间戳，单位微秒（us）；与 begin_frame 配合可得到整帧耗时。
+    virtual void end_frame(uint64_t timestamp_us) = 0;
 };
 
 } // namespace robot::framework
 
-#endif /* ROBOT_FRAME_PROFILER_HPP */
+#endif /* robot_frame_profiler_hpp */
 

@@ -23,8 +23,8 @@
 Create `Config/robot_build_config.h` with include guards and only compile-time options needed by the skeleton:
 
 ```cpp
-#ifndef ROBOT_BUILD_CONFIG_H
-#define ROBOT_BUILD_CONFIG_H
+#ifndef robot_build_config_h
+#define robot_build_config_h
 
 #define ROBOT_PLATFORM_STM32 1
 #define ROBOT_HAS_PLUGIN_GRAPH 1
@@ -106,39 +106,39 @@ git commit -m "build: add STM32 C++ application roots"
 
 **Files:**
 - Create: `ApplicationCpp/Framework/PluginTypes.hpp`
-- Create: `ApplicationCpp/Framework/PluginNode.hpp`
-- Create: `ApplicationCpp/Framework/PluginGraph.hpp`
-- Create: `ApplicationCpp/Framework/PluginGraph.cpp`
-- Create: `ApplicationCpp/Framework/FrameContext.hpp`
+- Create: `ApplicationCpp/Framework/plugin_node.hpp`
+- Create: `ApplicationCpp/Framework/plugin_graph.hpp`
+- Create: `ApplicationCpp/Framework/plugin_graph.cpp`
+- Create: `ApplicationCpp/Framework/frame_context.hpp`
 
 - [ ] **Step 1: Define compile-time-friendly status and lifecycle types**
 
-Provide `PluginStatus`, `ProcessResult`, `PluginState`, `PluginHealth`, `PluginId`, and `FrameContext`. No exceptions, RTTI, STL allocation, or FreeRTOS includes are allowed in these files.
+Provide `plugin_status`, `process_result`, `plugin_state`, `plugin_health`, `plugin_id`, and `frame_context`. No exceptions, RTTI, STL allocation, or FreeRTOS includes are allowed in these files.
 
 - [ ] **Step 2: Define the single node interface**
 
-`PluginNode` must be the same interface for every level. It exposes:
+`plugin_node` must be the same interface for every level. It exposes:
 
 ```cpp
-virtual void compose(PluginGraph& graph) = 0;
-virtual PluginStatus configure() = 0;
-virtual PluginStatus start() = 0;
-virtual ProcessResult process(FrameContext& context) = 0;
+virtual void compose(plugin_graph& graph) = 0;
+virtual plugin_status configure() = 0;
+virtual plugin_status start() = 0;
+virtual process_result process(frame_context& context) = 0;
 virtual void stop() = 0;
-virtual PluginHealth health() const = 0;
+virtual plugin_health health() const = 0;
 ```
 
 Every node owns no dynamic memory. An empty internal graph is allowed; a node may register fixed child members during `compose()`.
 
 - [ ] **Step 3: Define fixed graph storage**
 
-`PluginGraph` stores `PluginNode* nodes_[ROBOT_MAX_PLUGIN_NODES]` and fixed edge records. It provides `add()`, `addDependency(before, after)`, `validate()`, `compile()`, `startAll()`, `processFrame()`, and `stopAll()`.
+`plugin_graph` stores `plugin_node* nodes_[ROBOT_MAX_PLUGIN_NODES]` and fixed edge records. It provides `add()`, `add_dependency(before, after)`, `validate()`, `compile()`, `start_all()`, `process_frame()`, and `stop_all()`.
 
 For this phase, implement dependency edges and deterministic topological ordering. Reject duplicate nodes, duplicate edges, self-edges, capacity overflow, and cycles with status codes.
 
 - [ ] **Step 4: Implement graph freeze semantics**
 
-`compose()`/`addDependency()` are legal only before `compile()`. After `compile()`, all mutation attempts return a failure status. `processFrame()` executes the compiled order only; it never sorts the graph.
+`compose()`/`add_dependency()` are legal only before `compile()`. After `compile()`, all mutation attempts return a failure status. `process_frame()` executes the compiled order only; it never sorts the graph.
 
 - [ ] **Step 5: Add compile-time smoke assertions**
 
@@ -156,28 +156,28 @@ git commit -m "feat: add fixed-capacity plugin graph core"
 ### Task 3: Add STM32 clock, performance, and debug services
 
 **Files:**
-- Create: `ApplicationCpp/Platform/IClock.hpp`
-- Create: `ApplicationCpp/Platform/IProfiler.hpp`
+- Create: `ApplicationCpp/Platform/i_clock.hpp`
+- Create: `ApplicationCpp/Platform/i_profiler.hpp`
 - Create: `ApplicationCpp/Platform/DebugSnapshot.hpp`
-- Create: `Platform/STM32/Stm32Clock.cpp`
-- Create: `Platform/STM32/Stm32Profiler.cpp`
+- Create: `Platform/STM32/stm32_clock.cpp`
+- Create: `Platform/STM32/stm32_profiler.cpp`
 - Create: `Platform/STM32/DebugSnapshot.cpp`
 
 - [ ] **Step 1: Define the platform-neutral service contracts**
 
-`IClock` returns a monotonic microsecond/tick value. `IProfiler` records node start/end and frame timing. No Linux implementation is added in this phase.
+`i_clock` returns a monotonic microsecond/tick value. `i_profiler` records node start/end and frame timing. No Linux implementation is added in this phase.
 
 - [ ] **Step 2: Implement STM32 clock backend**
 
-Use the existing `bsp_dwt` interface where possible; do not reconfigure CubeMX clocks. If DWT is not initialized, return a safe monotonic fallback based on `HAL_GetTick()` and mark reduced-resolution status.
+Use the existing `bsp_dwt` interface where possible; do not reconfigure CubeMX clocks. If DWT is not is_initialized, return a safe monotonic fallback based on `HAL_GetTick()` and mark reduced-resolution status.
 
 - [ ] **Step 3: Implement fixed debug snapshot**
 
-Create one exported `volatile` `RobotDebugSnapshot` with frame counter, graph state, last process result, last frame duration, max frame duration, and fault flags. Keep it in user C++ code so Keil can watch it.
+Create one exported `volatile` `robot_debug_snapshot` with frame counter, graph state, last process result, last frame duration, max frame duration, and fault flags. Keep it in user C++ code so Keil can watch it.
 
 - [ ] **Step 4: Add automatic executor instrumentation hooks**
 
-The graph executor records frame start/end and per-node duration when `ROBOT_ENABLE_PERF_COUNTERS` is enabled. Full trace storage remains disabled by default.
+The graph executor records frame start/end and per-node duration when `ROBOT_ENABLE_PERF_COUNTERS` is is_enabled. Full trace storage remains disabled by default.
 
 - [ ] **Step 5: Commit services**
 
@@ -193,8 +193,8 @@ git commit -m "feat: add STM32 clock profiler and debug snapshot"
 **Files:**
 - Create: `ApplicationCpp/app_cpp_entry.h`
 - Create: `ApplicationCpp/app_cpp_entry.cpp`
-- Create: `ApplicationCpp/RobotApplication.hpp`
-- Create: `ApplicationCpp/RobotApplication.cpp`
+- Create: `ApplicationCpp/robot_application.hpp`
+- Create: `ApplicationCpp/robot_application.cpp`
 - Create: `ApplicationCpp/ControlExecutorTask.cpp`
 - Modify only USER CODE regions: `Core/Src/main.c`, `Core/Src/freertos.c`
 
@@ -217,11 +217,11 @@ void AppCpp_ControlTask(void const* argument);
 
 - [ ] **Step 2: Implement static application ownership**
 
-`app_cpp_entry.cpp` owns one static `RobotApplication` instance. `AppCpp_Initialize()` composes, validates, compiles, freezes, and starts the graph. On failure it updates the debug snapshot and leaves the executor disabled; it must not change motor outputs.
+`app_cpp_entry.cpp` owns one static `robot_application` instance. `AppCpp_Initialize()` composes, validates, compiles, freezes, and starts the graph. On failure it updates the debug snapshot and leaves the executor disabled; it must not change motor outputs.
 
 - [ ] **Step 3: Implement the 1 kHz task wrapper**
 
-`ControlExecutorTask.cpp` is the only new file allowed to include CMSIS-RTOS/FreeRTOS headers. It uses `vTaskDelayUntil` or the project’s CMSIS-compatible timing primitive to call `RobotApplication::processFrame()` every 1 ms. The task wrapper owns scheduling; nodes remain platform-independent.
+`ControlExecutorTask.cpp` is the only new file allowed to include CMSIS-RTOS/FreeRTOS headers. It uses `vTaskDelayUntil` or the project’s CMSIS-compatible timing primitive to call `robot_application::process_frame()` every 1 ms. The task wrapper owns scheduling; nodes remain platform-independent.
 
 - [ ] **Step 4: Add CubeMX-safe bridge calls**
 
@@ -229,7 +229,7 @@ Add only `USER CODE` additions to `main.c` for `AppCpp_Initialize()` after HAL/p
 
 - [ ] **Step 5: Keep the graph observation-only**
 
-The first `RobotApplication` graph contains a heartbeat/diagnostic node only. It must not call CAN transmit, motor functions, or modify legacy globals.
+The first `robot_application` graph contains a heartbeat/diagnostic node only. It must not call CAN transmit, motor functions, or modify legacy globals.
 
 - [ ] **Step 6: Commit bridge and executor**
 
@@ -257,7 +257,7 @@ Verify that no CubeMX generated file outside explicit `USER CODE` regions change
 
 - [ ] **Step 2: Verify graph invariants by inspection**
 
-Confirm that `PluginGraph::compile()` rejects cycles and that `processFrame()` never mutates graph storage or performs dynamic allocation.
+Confirm that `plugin_graph::compile()` rejects cycles and that `process_frame()` never mutates graph storage or performs dynamic allocation.
 
 - [ ] **Step 3: Document the user’s STM32 test procedure**
 
@@ -265,11 +265,11 @@ Record the expected Keil observations:
 
 ```text
 ROBOT_USE_PLUGIN_GRAPH remains 0
-legacy motor output remains active
-RobotDebugSnapshot.frame_id increments at 1 kHz
+legacy motor output remains is_active
+robot_debug_snapshot.frame_id increments at 1 kHz
 last_frame_duration_us remains within the configured budget
-plugin graph state is Running
-no new CAN transmit path is active
+plugin graph state is running
+no new CAN transmit path is is_active
 ```
 
 - [ ] **Step 4: Handoff without claiming an ARM build**

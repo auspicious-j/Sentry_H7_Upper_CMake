@@ -3,93 +3,93 @@
 #include "Framework/OutputComparison.hpp"
 
 namespace {
-using robot::diagnostics::ComparisonDemoInput;
-using robot::diagnostics::IndependentAccumulator;
-using robot::framework::ComparisonStatus;
-using robot::framework::ComparisonTolerance;
-using robot::framework::compareOutputs;
+using robot::diagnostics::comparison_demo_input;
+using robot::diagnostics::independent_accumulator;
+using robot::framework::comparison_status;
+using robot::framework::comparison_tolerance;
+using robot::framework::compare_outputs;
 
-constexpr bool independentStates()
+constexpr bool independent_states()
 {
-    IndependentAccumulator reference;
-    IndependentAccumulator candidate;
-    const ComparisonDemoInput first{7, 1U, 100U};
+    independent_accumulator reference;
+    independent_accumulator candidate;
+    const comparison_demo_input first{7, 1U, 100U};
     reference.advance(first);
     candidate.advance(first);
     candidate.reset(2U);
     return reference.output().value[0] == 7.0 && reference.output().key.step == 1U
-        && reference.output().key.state_epoch == 1U && !candidate.output().present;
+        && reference.output().key.state_epoch == 1U && !candidate.output().is_present;
 }
 
-constexpr bool alignedAndBiased()
+constexpr bool aligned_and_biased()
 {
-    IndependentAccumulator reference;
-    IndependentAccumulator candidate;
-    const ComparisonDemoInput first{7, 1U, 100U};
+    independent_accumulator reference;
+    independent_accumulator candidate;
+    const comparison_demo_input first{7, 1U, 100U};
     reference.advance(first);
     candidate.advance(first);
-    const ComparisonTolerance<2U> exact{};
-    return compareOutputs(reference.output(), candidate.output(), exact).status == ComparisonStatus::Equal
-        && compareOutputs(reference.output(), candidate.output(3), exact).status == ComparisonStatus::Different
+    const comparison_tolerance<2U> exact{};
+    return compare_outputs(reference.output(), candidate.output(), exact).status == comparison_status::equal
+        && compare_outputs(reference.output(), candidate.output(3), exact).status == comparison_status::different
         && candidate.output().value[0] == 7.0;
 }
 
-constexpr bool skipDoesNotCatchUp()
+constexpr bool skip_does_not_catch_up()
 {
-    IndependentAccumulator reference;
-    IndependentAccumulator candidate;
+    independent_accumulator reference;
+    independent_accumulator candidate;
     reference.advance({1, 1U, 100U});
     candidate.advance({1, 1U, 100U});
     reference.advance({1, 2U, 200U});
     reference.advance({1, 3U, 300U});
     candidate.advance({1, 3U, 300U});
-    return compareOutputs(reference.output(), candidate.output(), ComparisonTolerance<2U>{}).status
-        == ComparisonStatus::Unaligned;
+    return compare_outputs(reference.output(), candidate.output(), comparison_tolerance<2U>{}).status
+        == comparison_status::unaligned;
 }
 
-constexpr bool commonResetRestoresAlignment()
+constexpr bool common_reset_restores_alignment()
 {
-    IndependentAccumulator reference;
-    IndependentAccumulator candidate;
+    independent_accumulator reference;
+    independent_accumulator candidate;
     reference.advance({5, 1U, 100U});
     reference.reset(3U);
     candidate.reset(3U);
     reference.advance({-7, 2U, 200U});
     candidate.advance({-7, 2U, 200U});
-    return compareOutputs(reference.output(), candidate.output(), ComparisonTolerance<2U>{}).status
-        == ComparisonStatus::Equal;
+    return compare_outputs(reference.output(), candidate.output(), comparison_tolerance<2U>{}).status
+        == comparison_status::equal;
 }
 
-constexpr bool duplicateInputIsHeld()
+constexpr bool duplicate_input_is_held()
 {
-    IndependentAccumulator state;
+    independent_accumulator state;
     state.advance({7, 1U, 100U});
-    const bool consumed_again = state.advance({7, 1U, 100U});
-    return !consumed_again && state.output().key.step == 1U && state.output().value[0] == 7.0;
+    const bool is_consumed_again = state.advance({7, 1U, 100U});
+    return !is_consumed_again && state.output().key.step == 1U && state.output().value[0] == 7.0;
 }
 
-constexpr bool sequenceWrapUsesTime()
+constexpr bool sequence_wrap_uses_time()
 {
-    IndependentAccumulator state;
+    independent_accumulator state;
     state.advance({7, 0xFFFFFFFFU, 100U});
     state.advance({7, 0U, 200U});
-    return state.output().present && state.output().key.step == 2U
+    return state.output().is_present && state.output().key.step == 2U
         && state.output().key.input_sequence == 0U;
 }
 
-constexpr bool boundedArithmetic()
+constexpr bool bounded_arithmetic()
 {
-    IndependentAccumulator state;
+    independent_accumulator state;
     state.advance({2147483647, 1U, 100U});
     state.advance({-2147483647 - 1, 2U, 200U});
     return state.output().value[0] > -1000000.0 && state.output().value[0] < 1000000.0;
 }
 
-static_assert(independentStates());
-static_assert(alignedAndBiased());
-static_assert(skipDoesNotCatchUp());
-static_assert(commonResetRestoresAlignment());
-static_assert(duplicateInputIsHeld());
-static_assert(sequenceWrapUsesTime());
-static_assert(boundedArithmetic());
+static_assert(independent_states());
+static_assert(aligned_and_biased());
+static_assert(skip_does_not_catch_up());
+static_assert(common_reset_restores_alignment());
+static_assert(duplicate_input_is_held());
+static_assert(sequence_wrap_uses_time());
+static_assert(bounded_arithmetic());
 } // namespace

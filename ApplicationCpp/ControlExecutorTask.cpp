@@ -47,7 +47,8 @@ extern "C" void AppCpp_ControlTask(void const* argument)
     //   默认配置下 1 tick = 1 ms）；即每 1 ms 驱动一帧插件图。
     const TickType_t period = pdMS_TO_TICKS(1U);
 
-    for (;;) {
+    for (;;)
+    {
         // 业务图在这里运行；任务调度与插件业务保持分离。
         // AppCpp_ProcessFrame()：执行一帧 C++ 插件图（采集输入 → 逐节点计算 →
         //   下发输出），是插件框架每帧的唯一入口。

@@ -1,9 +1,9 @@
-#ifndef ROBOT_OUTPUT_COMPARISON_HPP
-#define ROBOT_OUTPUT_COMPARISON_HPP
+#ifndef robot_output_comparison_hpp
+#define robot_output_comparison_hpp
 
 // ============================================================================
 // 文件：OutputComparison.hpp
-// 作用：实现“两套计算结果逐通道对比”的核心纯函数 compareOutputs。
+// 作用：实现“两套计算结果逐通道对比”的核心纯函数 compare_outputs。
 //      给定参考结果(reference)、候选结果(candidate)与逐通道绝对容差(tolerance)，
 //      返回结构化结论，供上层诊断/断言使用。
 //
@@ -17,7 +17,7 @@
 //   4) 减法溢出：两个接近 double 上限的数相减，或阈值与差值相加，都可能发生
 //      舍入甚至溢出为 Inf，因此先做“半值缩放作差”再判断范围。
 //
-// 线程/性能：compareOutputs 为 constexpr 纯函数——不驱动业务、不修改任一方状态、
+// 线程/性能：compare_outputs 为 constexpr 纯函数——不驱动业务、不修改任一方状态、
 //           不发任何硬件输出，既可在运行期调用，也可在编译期对常量求值。
 // ============================================================================
 
@@ -51,13 +51,13 @@ constexpr bool finite(double value)
         && value <= std::numeric_limits<double>::max();
 }
 
-// subtractionFits —— 预判 (candidate - reference) 是否落在有限范围内，避免溢出。
+// subtraction_fits —— 预判 (candidate - reference) 是否落在有限范围内，避免溢出。
 // 为什么这样做：直接算 a - b 时，两个接近 double 上限的大数相减，中间结果可能
 //              溢出为 ±Inf；先各自乘 0.5 再作差（等价于差的一半），其余量仍然有限，
 //              从而能安全地判断“差值本身是否会溢出”。
 // 参数：candidate 被减数（候选值）；reference 减数（参考值）。
 // 返回值：差值可安全表示（|candidate - reference| 不超过 double 上限）返回 true，否则 false。
-constexpr bool subtractionFits(double candidate, double reference)
+constexpr bool subtraction_fits(double candidate, double reference)
 {
     constexpr double half_limit = std::numeric_limits<double>::max() * 0.5; // double 上限的一半（编译期常量）。
     // 先缩放再作差；半差最大仍在有限范围，避免阈值加法的舍入漏洞。
@@ -66,56 +66,70 @@ constexpr bool subtractionFits(double candidate, double reference)
 }
 } // namespace comparison_detail
 
-// compareOutputs —— 逐通道比较两份计算结果，返回结构化结论（本文件的核心纯函数）。
+// compare_outputs —— 逐通道比较两份计算结果，返回结构化结论（本文件的核心纯函数）。
 // 参数：
 //   reference：参考实现产出的只读完整结果；
 //   candidate：候选实现产出的只读完整结果；
 //   tolerance：统一物理单位下的逐通道绝对容差。
-// 返回值：ComparisonResult，含结论 status 与（在 Equal/Different 时的）逐通道差值。
+// 返回值：comparison_result，含结论 status 与（在 equal/different 时的）逐通道差值。
 // 纯函数语义：不驱动业务、不修改任一方状态、不发出任何硬件输出；
 //            既可在运行期调用，也可在编译期对常量求值。
-template <std::size_t ChannelCount>
-constexpr ComparisonResult<ChannelCount> compareOutputs(
-    const ComparisonSample<ChannelCount>& reference,
-    const ComparisonSample<ChannelCount>& candidate,
-    const ComparisonTolerance<ChannelCount>& tolerance)
+template <std::size_t channel_count>
+constexpr comparison_result<channel_count> compare_outputs(
+    const comparison_sample<channel_count>& reference,
+    const comparison_sample<channel_count>& candidate,
+    const comparison_tolerance<channel_count>& tolerance)
 {
-    // 前置检查 1：任一方没有完整结果（present 为 false）则无法比较，返回默认的 Missing 结论。
-    if (!reference.present || !candidate.present) {
+    // 前置检查 1：任一方没有完整结果（is_present 为 false）则无法比较，返回默认的 missing 结论。
+    if (!reference.is_present || !candidate.is_present)
+    {
         return {};
     }
     // 前置检查 2：两方身份（采样时刻/输入序号/状态版本/计算步数）必须一致，
-    // 否则差异可能源于输入或状态不同，判为 Unaligned 而非算法错误。
-    if (!sameComparisonKey(reference.key, candidate.key)) {
-        return {ComparisonStatus::Unaligned};
+    // 否则差异可能源于输入或状态不同，判为 unaligned 而非算法错误。
+    if (!same_comparison_key(reference.key, candidate.key))
+    {
+        return {comparison_status::unaligned};
     }
     // 前置检查 3：先逐通道验证容差合法，禁止负值以及 NaN/无穷掩盖真实差异。
     // index：遍历通道下标。
-    for (std::size_t index = 0U; index < ChannelCount; ++index) {
-        if (!comparison_detail::finite(tolerance.absolute[index]) || tolerance.absolute[index] < 0.0) {
-            return {ComparisonStatus::InvalidTolerance};
+    for (std::size_t index = 0U; index < channel_count; ++index)
+    {
+        if (!comparison_detail::finite(tolerance.absolute[index]) || tolerance.absolute[index] < 0.0)
+        {
+            return {comparison_status::invalid_tolerance};
         }
     }
     // result：局部累积结果，只有全部通道校验通过后才对外发布，绝不外露未完成的计算。
-    ComparisonResult<ChannelCount> result{};
-    result.status = ComparisonStatus::Equal; // 先假定一致，发现超差再改成 Different。
+    comparison_result<channel_count> result{};
+    result.status = comparison_status::equal; // 先假定一致，发现超差再改成 different。
     // index：逐通道计算差值并累计；一旦发现 NaN/Inf 或减法溢出，立即返回空差值而非部分有效数据。
-    for (std::size_t index = 0U; index < ChannelCount; ++index) {
-        // 任一侧数值非有限，或两者之差可能溢出，都判为 NonFinite。
+    for (std::size_t index = 0U; index < channel_count; ++index)
+    {
+        // 任一侧数值非有限，或两者之差可能溢出，都判为 non_finite。
         if (!comparison_detail::finite(reference.value[index])
             || !comparison_detail::finite(candidate.value[index])
-            || !comparison_detail::subtractionFits(candidate.value[index], reference.value[index])) {
-            return {ComparisonStatus::NonFinite};
+            || !comparison_detail::subtraction_fits(candidate.value[index], reference.value[index])) {
+            return {comparison_status::non_finite};
         }
         const double delta = candidate.value[index] - reference.value[index]; // 有符号差（candidate - reference）。
-        if (!comparison_detail::finite(delta)) { return {ComparisonStatus::NonFinite}; } // 差值仍须复核有限性。
+        if (!comparison_detail::finite(delta))
+        {
+            return {comparison_status::non_finite};
+        } // 差值仍须复核有限性。
         const double absolute = delta < 0.0 ? -delta : delta; // 绝对差 |delta|。
         result.difference[index] = delta; // 记录本通道差值。
-        if (absolute > result.max_abs_difference) { result.max_abs_difference = absolute; } // 更新各通道最大绝对差。
-        if (absolute > tolerance.absolute[index]) { result.status = ComparisonStatus::Different; } // 超出本通道容差即判为不一致。
+        if (absolute > result.max_abs_difference)
+        {
+            result.max_abs_difference = absolute;
+        } // 更新各通道最大绝对差。
+        if (absolute > tolerance.absolute[index])
+        {
+            result.status = comparison_status::different;
+        } // 超出本通道容差即判为不一致。
     }
     return result;
 }
 
 } // namespace robot::framework
-#endif // ROBOT_OUTPUT_COMPARISON_HPP
+#endif // robot_output_comparison_hpp

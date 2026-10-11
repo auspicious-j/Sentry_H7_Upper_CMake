@@ -1,5 +1,5 @@
-﻿#ifndef ROBOT_APP_CPP_ENTRY_H
-#define ROBOT_APP_CPP_ENTRY_H
+﻿#ifndef robot_app_cpp_entry_h
+#define robot_app_cpp_entry_h
 
 //=============================================================================
 // 文件：app_cpp_entry.h
@@ -53,4 +53,4 @@ void AppCpp_ControlTask(void const* argument);
 }
 #endif
 
-#endif /* ROBOT_APP_CPP_ENTRY_H */
+#endif /* robot_app_cpp_entry_h */

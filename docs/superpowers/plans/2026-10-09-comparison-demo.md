@@ -6,9 +6,9 @@
 
 两个累加器分别持有整数累计值、步数、状态版本和最近输入身份。输入每帧发布固定可配置整数；重复输入不重复推进。只允许控制层分别重置实例，不复制任一方内部状态。结果输出为累计值和步数两个通道；偏差仅注入候选输出，不写进候选状态。
 
-Watch 提供 `input_value`、`candidate_bias`、`pause_candidate`、`reset_all_request`、`reset_candidate_request`。请求在帧开始取样；共同重置优先于同帧单侧重置。暂停后恢复不会补算漏掉的输入，直到共同重置才能恢复完整状态时间线的一致。
+Watch 提供 `input_value`、`candidate_bias`、`is_pause_candidate`、`reset_all_request`、`reset_candidate_request`。请求在帧开始取样；共同重置优先于同帧单侧重置。暂停后恢复不会补算漏掉的输入，直到共同重置才能恢复完整状态时间线的一致。
 
-比较器只读取结果，不驱动计算或硬件。Equal/Different 的差值有效；Unaligned/Missing 不发布可当作数值差异使用的字段。累计统计不随算法重置清零。
+比较器只读取结果，不驱动计算或硬件。equal/different 的差值有效；unaligned/missing 不发布可当作数值差异使用的字段。累计统计不随算法重置清零。
 
 ## 实施步骤
 
