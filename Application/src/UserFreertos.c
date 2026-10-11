@@ -1,57 +1,83 @@
-#include "UserFreertos.h"
-#include "USER_Moto.h"
-#include "USER_B2B.h"
-// #include "cmsis_armcc.h"
-#include "USER_RC.h"
-#include "usart.h"
-#include "bsp_ws2812.h"
-#include <stdint.h>
+/*==============================================================================
+ * UserFreertos.c —— 用户任务（RTOS 任务）实现
+ *------------------------------------------------------------------------------
+ * 本文件属于应用层，配合 CubeMX 生成的 FreeRTOS 框架一起工作：
+ *   - 任务的创建与调度（任务句柄、优先级、栈大小、执行周期等）由 CubeMX
+ *     生成的 freertos.c / main.c 完成；任务的“函数体”在本文件或其它应用
+ *     文件中实现。
+ *   - 术语说明：任务（Task）是 RTOS 中可被独立调度执行的代码单元；优先级
+ *     （Priority）数值越小优先级越高，高优先级任务就绪时会抢占低优先级任务；
+ *     栈（Stack）是任务私有的内存区域，用于保存局部变量与函数调用现场。
+ *   - 本文件当前只实现了“错误处理（急停）任务”OS_ErrorCallback：系统一旦
+ *     判定故障，就切换到该任务，持续关闭电机并向下位机发送停止指令。
+ *============================================================================*/
+#include "UserFreertos.h"        // 本模块头文件（内部任务句柄的外部声明，见 UserFreertos.h）
+#include "USER_Moto.h"           // 电机控制接口（CAN 电流下发、MIT 模式使能/失能）
+#include "USER_B2B.h"            // 板间通信（本机与下板之间的数据收发）
+// #include "cmsis_armcc.h"      // 已弃用：ARMCC 专用内联函数头，当前工具链不再需要
+#include "USER_RC.h"             // 遥控器信息（rcInfo，含左右拨杆状态）
+#include "usart.h"               // 串口外设驱动（视觉/遥控等串口通信）
+#include "bsp_ws2812.h"          // WS2812 灯珠驱动（状态指示与报警闪烁）
+#include <stdint.h>              // 标准定长整型（uint8_t / uint16_t 等）
 
-extern DMA_HandleTypeDef hdma_usart2_rx;
-extern uint8_t usart2RxBuf[256];
+/* 以下变量由 CubeMX 生成的串口 DMA 代码定义，此处仅作外部引用 */
+extern DMA_HandleTypeDef hdma_usart2_rx;   // USART2 的 DMA 接收句柄
+extern uint8_t usart2RxBuf[256];           // USART2 接收缓冲区，长度 256 字节
 
 
-//閿欒澶勭悊(鎬ュ仠)浠诲姟
-/*
- 鏃爋s_delay鏈€楂樹紭鍏堢骇 鍦ㄧ▼搴忔甯歌繍琛屾椂涓嶅簲璇ヨ璋冪敤
- 鍦ㄦ仮澶嶆墽琛屾椂鍗犳嵁鍏ㄩ儴鏃堕棿鐗囬タ姝诲叾浠栦换鍔?
-*/
-
-//错误处理(急停)任务
-/* 无os_delay最高优先级 在程序正常运行时不应该被调用
- 在恢复执行时占据全部时间片饿死其他任务
-*/
+/*------------------------------------------------------------------------------
+ * 错误处理（急停）任务 —— 任务体函数 OS_ErrorCallback
+ *------------------------------------------------------------------------------
+ * 作用：系统检测到严重故障时执行的最后一道保护，强制整机“急停”。
+ * 调度特点：该任务在 CubeMX 中被配置为最高优先级，且不使用 os_delay（阻塞
+ *           延时）。因此一旦进入本函数，就会长期霸占 CPU、饿死其它低优先级
+ *           任务——这是有意为之，目的就是让整机彻底停下来。正常运行时该任务
+ *           应处于挂起态，不应被执行。
+ * 进入方式：由故障检测逻辑调用 osThreadResume 唤醒；本函数首次执行时也会
+ *           主动挂起自身，以避免停机流程被重复触发。
+ * 说明：原文件此处另有一段乱码注释，是本节注释的损坏副本，已合并整理。
+ *------------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+ * 函数：OS_ErrorCallback（错误处理/急停任务体）
+ * 用途：整机强制停机保护——持续关闭电机、必要时通知下板停止，并循环闪红灯报警。
+ * 参数：argument —— RTOS 任务启动参数，本函数未使用（仅为匹配任务回调签名）。
+ * 返回值：无（void）；内部为死循环，正常情况下不会返回。
+ * 调用时机：由 FreeRTOS 在调度 ErrorTaskHandle 任务时调用（仅有故障时才被唤醒）。
+ *-----------------------------------------------------------------------------*/
 void OS_ErrorCallback(void const * argument)
 {
+    // 板间通信初始化 B2B_Init()：当前版本暂未启用（保留以备后续开启）
     //    B2B_Init();
     //	B2B_Init();
-    osThreadSuspend(ErrorTaskHandle); //第一次执行挂起自身
-    CLEAR_BIT(hfdcan1.Instance->CCCR, FDCAN_CCCR_INIT);
-    disable_motor_mode(&hfdcan1,0x01,MIT_MODE);
-    USER_CAN_SetMotorCurrent(&hfdcan1,0x200,0,0,0,0);//关断电机
-    USER_CAN_SetMotorCurrent(&hfdcan1,0x1FF,0,0,0,0);//关断电机
-    USER_CAN_SetMotorCurrent(&hfdcan2,0x1FF,0,0,0,0);//关断电机
-    for(;;)
+    osThreadSuspend(ErrorTaskHandle); // 首次进入即挂起自身：停机流程只跑一遍，之后需外部 osThreadResume 才会再次进入
+    /* 以下为“首次”停机动作：在挂起自身前先把电机彻底关掉，确保上电/复位后立即停转 */
+    CLEAR_BIT(hfdcan1.Instance->CCCR, FDCAN_CCCR_INIT); // 清 FDCAN1 的 INIT 位：退出初始化模式，使总线可正常收发
+    disable_motor_mode(&hfdcan1,0x01,MIT_MODE);         // 让 CAN1 上 ID=0x01 的电机退出 MIT 模式
+    USER_CAN_SetMotorCurrent(&hfdcan1,0x200,0,0,0,0);   // 关断电机：向 CAN1 电流帧 ID=0x200 下发 0 电流
+    USER_CAN_SetMotorCurrent(&hfdcan1,0x1FF,0,0,0,0);   // 关断电机：向 CAN1 电流帧 ID=0x1FF 下发 0 电流
+    USER_CAN_SetMotorCurrent(&hfdcan2,0x1FF,0,0,0,0);   // 关断电机：向 CAN2 电流帧 ID=0x1FF 下发 0 电流
+    for(;;) // 死循环：持续维持急停保护（无阻塞语义，配合最高优先级长期霸占 CPU）
     {
+        // 板间通信初始化（当前版本已注释，保留以备启用）
     //B2B_Init();
-        USER_CAN_SetMotorCurrent(&hfdcan1,0x200,0,0,0,0);//关断电机
-        USER_CAN_SetMotorCurrent(&hfdcan1,0x1FF,0,0,0,0);//关断电机
-        USER_CAN_SetMotorCurrent(&hfdcan2,0x1FF,0,0,0,0);//关断电机
-        disable_motor_mode(&hfdcan2,0x01,MIT_MODE);
-        HAL_Delay(1);
-        if (FEEDBACK !=1)  //返回值不对  向下板发送停止信息
+        USER_CAN_SetMotorCurrent(&hfdcan1,0x200,0,0,0,0); // 每轮重新下发 0 电流：CAN1 电流帧 ID=0x200
+        USER_CAN_SetMotorCurrent(&hfdcan1,0x1FF,0,0,0,0); // 每轮重新下发 0 电流：CAN1 电流帧 ID=0x1FF
+        USER_CAN_SetMotorCurrent(&hfdcan2,0x1FF,0,0,0,0); // 每轮重新下发 0 电流：CAN2 电流帧 ID=0x1FF
+        disable_motor_mode(&hfdcan2,0x01,MIT_MODE);       // 让 CAN2 上 ID=0x01 的电机退出 MIT 模式
+        HAL_Delay(1);                                     // 阻塞 1 ms：给 CAN 发送留出节拍（此处允许短暂阻塞）
+        if (FEEDBACK !=1)  // 下板反馈异常（FEEDBACK 正常应为 1）：需要通知下位机停止
         {
-            STOPFLAG = 1;
-            B2B_Transmit();
+            STOPFLAG = 1;   // 置停止标志，供通信层把“停止”状态带给下板
+            B2B_Transmit(); // 通过板间通信把当前状态（含停止标志）发送给下板
         }
-        if (rcInfo.right != 2 && rcInfo.right != 0)
-            HAL_NVIC_SystemReset(); // 右拨杆回到中间重启系统
-        //红灯闪烁
-        WS2812_Set(0, 50, 0, 0);
-        HAL_Delay(75);
-        WS2812_Set(0, 0, 0, 0);
-        HAL_Delay(75);
-    }//无os_delay 最高优先级
+        if (rcInfo.right != 2 && rcInfo.right != 0) // 遥控器右拨杆离开中位（既非 2 也非 0）
+            HAL_NVIC_SystemReset(); // 右拨杆回到中间时复位系统（重启以解除急停）
+        // 红灯闪烁：点亮红色(R=50,G=0,B=0) → 熄灭，各持续 75 ms，作为急停报警指示
+        WS2812_Set(0, 50, 0, 0); // 点亮第 1 颗灯：R=50,G=0,B=0（红色）
+        HAL_Delay(75);           // 保持亮 75 ms
+        WS2812_Set(0, 0, 0, 0);  // 熄灭第 1 颗灯
+        HAL_Delay(75);           // 保持灭 75 ms
+    }// 循环结束：本任务不使用 os_delay 且为最高优先级，会持续霸占 CPU
 }
 
 

@@ -15,6 +15,8 @@
  ******************************************************************************
  */
 #include "USER_Moto.h"
+// degree.h：提供 ModularDegreeTowards()，供达妙舵电机累计角度把差值展开到 (-180°,180°]
+// dji_angle.h：提供 ModularDJIAngleTowards()，供大疆电机累计角度把差值展开到 (-4096,4096]
 #include "degree.h"
 #include "dji_angle.h"
 
@@ -46,9 +48,10 @@ void Motor_StartCalcAngle(DJI_Motor_t *motor)
  */
 void Motor_CalcAngle(DJI_Motor_t *motor)
 {
-    // 将角度增量加入计数器
+    // ModularDJIAngleTowards(差值, 0) 把相邻两帧编码器角度差归一化到 (-4096, 4096]：
+    // 编码器一圈为 8192，跨 0/8191 零点的大跳变会被折算成正确的小增量，再累加到计数器
     motor->totalAngle += ModularDJIAngleTowards(motor->angle - motor->lastAngle, 0);
-    // 记录角度
+    // 记录本帧角度，作为下一帧差分的基准
     motor->lastAngle = motor->angle;
 }
 
@@ -62,6 +65,7 @@ void Motor_CalcAngle(DJI_Motor_t *motor)
  */
 void Motor_StartCalcAngle_J4310(Double_motor_t *motor)
 {
+    // 把起始角度归一化到 (-180°, 180°]，作为累计角度的零点
     motor->totalAngle = ModularDegreeTowards(motor->TurnAngle, 0.0f);
     motor->lastAngle = motor->TurnAngle; // 记录当前角度，作为差分基准
 }
@@ -75,6 +79,8 @@ void Motor_StartCalcAngle_J4310(Double_motor_t *motor)
  */
 void Motor_CalcAngle_J4310(Double_motor_t *motor)
 {
+    // ModularDegreeTowards(差值, 0) 把相邻两帧角度差归一化到 (-180°, 180°]：
+    // 跨 ±180° 零点的大跳变会被折算成正确的小增量，再累加到总角度
     motor->totalAngle += ModularDegreeTowards(motor->TurnAngle - motor->lastAngle, 0.0f);
     motor->lastAngle = motor->TurnAngle; // 记录本周期角度，供下周期差分
 }
@@ -150,9 +156,9 @@ void dm4310_fbdata(DM_motor_t *motor, uint8_t *rx_data)//大喵4310数据更新
     motor->para.p_int=(rx_data[1]<<8)|rx_data[2]; // 位置整型量（16bit）
     motor->para.v_int=(rx_data[3]<<4)|(rx_data[4]>>4); // 速度整型量（12bit）
     motor->para.t_int=((rx_data[4]&0xF)<<8)|rx_data[5]; // 扭矩整型量（12bit）
-    motor->para.pos = uint_to_float(motor->para.p_int, P_MIN, P_MAX, 16); // 位置(rad)，量程 (-12.5,12.5) // (-12.5,12.5)
-    motor->para.vel = uint_to_float(motor->para.v_int, V_MIN, V_MAX, 12); // 速度(rad/s)，量程 (-30.0,30.0) // (-30.0,30.0)
-    motor->para.tor = uint_to_float(motor->para.t_int, T_MIN, T_MAX, 12); // 扭矩(N·m)，量程 (-10.0,10.0) // (-10.0,10.0)
+    motor->para.pos = uint_to_float(motor->para.p_int, P_MIN, P_MAX, 16); // 位置(rad)：按量程 P_MIN~P_MAX（本工程为 ±π）由 16bit 整型解码
+    motor->para.vel = uint_to_float(motor->para.v_int, V_MIN, V_MAX, 12); // 速度(rad/s)：按量程 V_MIN~V_MAX（±30）由 12bit 整型解码
+    motor->para.tor = uint_to_float(motor->para.t_int, T_MIN, T_MAX, 12); // 扭矩(N·m)：按量程 T_MIN~T_MAX（±10）由 12bit 整型解码
     motor->para.Tmos = (float)(rx_data[6]); // MOS 管温度（℃）
     motor->para.Tcoil = (float)(rx_data[7]); // 电机线圈温度（℃）
 }

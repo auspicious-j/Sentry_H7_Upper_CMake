@@ -1,24 +1,39 @@
+/**
+************************************************************************
+* @file    BMI088Middleware.c
+* @brief   BMI088 硬件接口层实现(SPI 收发/片选/延时)
+* @details 本文件是驱动的底层，只做三件事：
+*          1) 控制片选脚(CS)：选中或释放加速度计、陀螺仪；
+*          2) SPI 单字节收发：发 1 字节同时收回 1 字节；
+*          3) 微秒/毫秒延时：满足上电与写寄存器时序；
+*          寄存器读写与数据换算由上层 BMI088driver 完成。
+*          BMI088 为六轴 IMU：加速度计与陀螺仪是两个独立从机，
+*          共用 SPI 总线但各有独立片选脚。
+************************************************************************
+**/
 #include "BMI088Middleware.h"
 #include "main.h"
 
+// BMI088 挂接的 SPI 句柄：本工程使用 SPI2(外设由 CubeMX 配置)
 #define BMI088_USING_SPI_UNIT   hspi2
 
+// SPI 句柄由 CubeMX 生成代码(main.c/spi.c)定义
 extern SPI_HandleTypeDef BMI088_USING_SPI_UNIT;
 
 /**
 ************************************************************************
-* @brief:          BMI088_GPIO_init(void)
-* @param:       void
-* @retval:         void
-* @details:        BMI088传感器GPIO初始化函数
+* @brief   BMI088_GPIO_init - 初始化 BMI088 片选等 GPIO
+* @param   void   无参数
+* @retval  void   无返回值
+* @details 本工程片选脚 ACC_CS/GYRO_CS 由 CubeMX 生成代码初始化，故此处留空
 ************************************************************************
 **/
 /**
 ************************************************************************
-* @brief:      	BMI088_GPIO_init(void)
-* @param:       void
-* @retval:     	void
-* @details:    	BMI088传感器GPIO初始化函数
+* 备注：BMI088_GPIO_init
+* 参见上方主注释块
+* 参见上方主注释块
+* 片选 GPIO 由 CubeMX 生成代码统一配置
 ************************************************************************
 **/
 void BMI088_GPIO_init(void)
@@ -27,18 +42,18 @@ void BMI088_GPIO_init(void)
 }
 /**
 ************************************************************************
-* @brief:          BMI088_com_init(void)
-* @param:       void
-* @retval:         void
-* @details:        BMI088传感器通信初始化函数
+* @brief   BMI088_com_init - 初始化 BMI088 通信接口(SPI)
+* @param   void   无参数
+* @retval  void   无返回值
+* @details SPI2 外设由 CubeMX 生成代码已初始化，故此处留空
 ************************************************************************
 **/
 /**
 ************************************************************************
-* @brief:      	BMI088_com_init(void)
-* @param:       void
-* @retval:     	void
-* @details:    	BMI088传感器通信初始化函数
+* 备注：BMI088_com_init
+* 参见上方主注释块
+* 参见上方主注释块
+* SPI2 外设由 CubeMX 生成代码初始化
 ************************************************************************
 **/
 void BMI088_com_init(void)
@@ -48,175 +63,175 @@ void BMI088_com_init(void)
 }
 /**
 ************************************************************************
-* @brief:          BMI088_delay_ms(uint16_t ms)
-* @param:       ms - 要延迟的毫秒数
-* @retval:         void
-* @details:        延迟指定毫秒数的函数，基于微秒延迟实现
+* @brief   BMI088_delay_ms - 毫秒级延时
+* @param   ms     要延时的毫秒数
+* @retval  void   无返回值
+* @details 循环调用微秒延时，每轮 1ms，共 ms 轮
 ************************************************************************
 **/
 /**
 ************************************************************************
-* @brief:      	BMI088_delay_ms(uint16_t ms)
-* @param:       ms - 要延迟的毫秒数
-* @retval:     	void
-* @details:    	延迟指定毫秒数的函数，基于微秒延迟实现
+* 备注：BMI088_delay_ms
+* 参见上方主注释块
+* 参见上方主注释块
+* 由多次 BMI088_delay_us(1000) 叠加实现
 ************************************************************************
 **/
 void BMI088_delay_ms(uint16_t ms)
 {
-    while(ms--)
+    while(ms--) // 每轮延时 1 毫秒，共 ms 轮
     {
-        BMI088_delay_us(1000);
+        BMI088_delay_us(1000); // 调用微秒延时凑出 1 毫秒
     }
 }
 /**
 ************************************************************************
-* @brief:          BMI088_delay_us(uint16_t us)
-* @param:       us - 要延迟的微秒数
-* @retval:         void
-* @details:        微秒级延迟函数，使用SysTick定时器实现
+* @brief   BMI088_delay_us - 微秒级忙等延时
+* @param   us     要延时的微秒数
+* @retval  void   无返回值
+* @details 读 SysTick 计数器轮询等待(480MHz 下 1us=480 计数)
 ************************************************************************
 **/
 /**
 ************************************************************************
-* @brief:      	BMI088_delay_us(uint16_t us)
-* @param:       us - 要延迟的微秒数
-* @retval:     	void
-* @details:    	微秒级延迟函数，使用SysTick定时器实现
+* 备注：BMI088_delay_us
+* 参见上方主注释块
+* 参见上方主注释块
+* 基于 SysTick 计数轮询，属忙等(阻塞)延时
 ************************************************************************
 **/
 void BMI088_delay_us(uint16_t us)
 {
 
-    uint32_t ticks = 0;
-    uint32_t told = 0;
-    uint32_t tnow = 0;
-    uint32_t tcnt = 0;
-    uint32_t reload = 0;
-    reload = SysTick->LOAD;
-    ticks = us * 480;
-    told = SysTick->VAL;
-    while (1)
+    uint32_t ticks = 0; // 目标计数：需等待的 SysTick 计数差
+    uint32_t told = 0; // 上一次读取的计数值
+    uint32_t tnow = 0; // 本次读取的计数值
+    uint32_t tcnt = 0; // 已累计流逝的计数
+    uint32_t reload = 0; // SysTick 重装载值(一个周期总刻度)
+    reload = SysTick->LOAD; // 读取重装载寄存器 LOAD
+    ticks = us * 480; // 换算：480MHz 下 1us=480 计数
+    told = SysTick->VAL; // 记录起始计数(SysTick 向下计数)
+    while (1) // 轮询计数直到累计达到目标
     {
-        tnow = SysTick->VAL;
-        if (tnow != told)
+        tnow = SysTick->VAL; // 读取当前计数值 VAL
+        if (tnow != told) // 有变化才统计，避免重复累加
         {
-            if (tnow < told)
+            if (tnow < told) // 未跨过 0：流逝量=上次-本次
             {
-                tcnt += told - tnow;
+                tcnt += told - tnow; // 向下计数，told-tnow 为正
             }
             else
             {
-                tcnt += reload - tnow + told;
+                tcnt += reload - tnow + told; // 已回绕：补上 reload 再相加
             }
-            told = tnow;
-            if (tcnt >= ticks)
+            told = tnow; // 更新基准，供下轮比较
+            if (tcnt >= ticks) // 累计达到目标
             {
-                break;
+                break; // 结束忙等
             }
         }
     }
 }
 /**
 ************************************************************************
-* @brief:          BMI088_ACCEL_NS_L(void)
-* @param:       void
-* @retval:         void
-* @details:        将BMI088加速度计片选信号置低，使其处于选中状态
+* @brief   BMI088_ACCEL_NS_L - 选中加速度计
+* @param   void   无参数
+* @retval  void   无返回值
+* @details 把加速度计片选脚 ACC_CS 拉低(低电平有效)
 ************************************************************************
 **/
 /**
 ************************************************************************
-* @brief:      	BMI088_ACCEL_NS_L(void)
-* @param:       void
-* @retval:     	void
-* @details:    	将BMI088加速度计片选信号置低，使其处于选中状态
+* 备注：BMI088_ACCEL_NS_L
+* 参见上方主注释块
+* 参见上方主注释块
+* ACC_CS 输出低电平
 ************************************************************************
 **/
 void BMI088_ACCEL_NS_L(void)
 {
-    HAL_GPIO_WritePin(ACC_CS_GPIO_Port, ACC_CS_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(ACC_CS_GPIO_Port, ACC_CS_Pin, GPIO_PIN_RESET); // 片选拉低：选中加速度计
 }
 /**
 ************************************************************************
-* @brief:          BMI088_ACCEL_NS_H(void)
-* @param:       void
-* @retval:         void
-* @details:        将BMI088加速度计片选信号置高，使其处于非选中状态
+* @brief   BMI088_ACCEL_NS_H - 释放加速度计
+* @param   void   无参数
+* @retval  void   无返回值
+* @details 把加速度计片选脚 ACC_CS 拉高(高电平=不选中)
 ************************************************************************
 **/
 /**
 ************************************************************************
-* @brief:      	BMI088_ACCEL_NS_H(void)
-* @param:       void
-* @retval:     	void
-* @details:    	将BMI088加速度计片选信号置高，使其处于非选中状态
+* 备注：BMI088_ACCEL_NS_H
+* 参见上方主注释块
+* 参见上方主注释块
+* ACC_CS 输出高电平
 ************************************************************************
 **/
 void BMI088_ACCEL_NS_H(void)
 {
-    HAL_GPIO_WritePin(ACC_CS_GPIO_Port, ACC_CS_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(ACC_CS_GPIO_Port, ACC_CS_Pin, GPIO_PIN_SET); // 片选拉高：释放加速度计
 }
 /**
 ************************************************************************
-* @brief:          BMI088_GYRO_NS_L(void)
-* @param:       void
-* @retval:         void
-* @details:        将BMI088陀螺仪片选信号置低，使其处于选中状态
+* @brief   BMI088_GYRO_NS_L - 选中陀螺仪
+* @param   void   无参数
+* @retval  void   无返回值
+* @details 把陀螺仪片选脚 GYRO_CS 拉低(低电平有效)
 ************************************************************************
 **/
 /**
 ************************************************************************
-* @brief:      	BMI088_GYRO_NS_L(void)
-* @param:       void
-* @retval:     	void
-* @details:    	将BMI088陀螺仪片选信号置低，使其处于选中状态
+* 备注：BMI088_GYRO_NS_L
+* 参见上方主注释块
+* 参见上方主注释块
+* GYRO_CS 输出低电平
 ************************************************************************
 **/
 void BMI088_GYRO_NS_L(void)
 {
-    HAL_GPIO_WritePin(GYRO_CS_GPIO_Port, GYRO_CS_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GYRO_CS_GPIO_Port, GYRO_CS_Pin, GPIO_PIN_RESET); // 片选拉低：选中陀螺仪
 }
 /**
 ************************************************************************
-* @brief:          BMI088_GYRO_NS_H(void)
-* @param:       void
-* @retval:         void
-* @details:        将BMI088陀螺仪片选信号置高，使其处于非选中状态
+* @brief   BMI088_GYRO_NS_H - 释放陀螺仪
+* @param   void   无参数
+* @retval  void   无返回值
+* @details 把陀螺仪片选脚 GYRO_CS 拉高(高电平=不选中)
 ************************************************************************
 **/
 /**
 ************************************************************************
-* @brief:      	BMI088_GYRO_NS_H(void)
-* @param:       void
-* @retval:     	void
-* @details:    	将BMI088陀螺仪片选信号置高，使其处于非选中状态
+* 备注：BMI088_GYRO_NS_H
+* 参见上方主注释块
+* 参见上方主注释块
+* GYRO_CS 输出高电平
 ************************************************************************
 **/
 void BMI088_GYRO_NS_H(void)
 {
-    HAL_GPIO_WritePin(GYRO_CS_GPIO_Port, GYRO_CS_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GYRO_CS_GPIO_Port, GYRO_CS_Pin, GPIO_PIN_SET); // 片选拉高：释放陀螺仪
 }
 /**
 ************************************************************************
-* @brief:          BMI088_read_write_byte(uint8_t txdata)
-* @param:       txdata - 要发送的数据
-* @retval:         uint8_t - 接收到的数据
-* @details:        通过BMI088使用的SPI总线进行单字节的读写操作
+* @brief   BMI088_read_write_byte - SPI 单字节全双工收发
+* @param   txdata  要发送的字节(寄存器地址或数据)
+* @retval  uint8_t 该时钟周期从从机收到的字节
+* @details 主机发 1 字节同时收 1 字节，收发合并完成
 ************************************************************************
 **/
 /**
 ************************************************************************
-* @brief:      	BMI088_read_write_byte(uint8_t txdata)
-* @param:       txdata - 要发送的数据
-* @retval:     	uint8_t - 接收到的数据
-* @details:    	通过BMI088使用的SPI总线进行单字节的读写操作
+* 备注：BMI088_read_write_byte
+* 参见上方主注释块
+* 参见上方主注释块
+* 调用 HAL_SPI_TransmitReceive 完成全双工传输
 ************************************************************************
 **/
 uint8_t BMI088_read_write_byte(uint8_t txdata)
 {
-    uint8_t rx_data;
-    HAL_SPI_TransmitReceive(&BMI088_USING_SPI_UNIT, &txdata, &rx_data, 1, 1000);
-    return rx_data;
+    uint8_t rx_data; // 存放本次 SPI 收到的字节
+    HAL_SPI_TransmitReceive(&BMI088_USING_SPI_UNIT, &txdata, &rx_data, 1, 1000); // 全双工收发 1 字节，超时 1000ms
+    return rx_data; // 返回从机回传的字节
 }
 

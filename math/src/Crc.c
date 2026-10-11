@@ -1,10 +1,32 @@
+/*
+ * 文件：Crc.c
+ * 功能：CRC8 / CRC16 两种循环冗余校验（CRC，Cyclic Redundancy Check）的表驱动实现。
+ *
+ * 用途：RoboMaster 裁判系统与内部通信中，每帧数据都要带校验码。
+ *   发送方在帧尾写入校验码（Append），接收方重算并比对（Verify），
+ *   一致才认为数据未受干扰，否则丢弃该帧，避免错误数据被当成有效指令。
+ *
+ * 两套算法：
+ *   - CRC8 ：8 位校验码，生成多项式 G(x) = x8 + x5 + x4 + 1，用于帧头校验；
+ *   - CRC16：16 位校验码，反射式查表（等价多项式 0x8005），用于整帧校验。
+ *   两者都用“查表法”：把 256 种可能的中间结果预先存进数组，运行时仅做异或与查表，
+ *   速度快、适合单片机实时场合。
+ */
+
 #include "cRc.h"
 
 #include <stdbool.h>
 
 
-///////////CRC_check_function crc8    generator polynomial:G(x)=x8+x5+x4+1
+/*
+ * ======================= CRC8 部分 =======================
+ * 生成多项式 G(x) = x8 + x5 + x4 + 1（标准 CRC-8，此处用于裁判系统数据帧的帧头）。
+ * 采用表驱动查表法：CRC8_TAB 预先存放 256 种输入字节对应的中间结果，运行时只需异或与查表。
+ */
+
+/* CRC8 计算的初始值（种子）。0xFF 是该标准 CRC8 约定的初值，收发双方必须一致。 */
 const unsigned char CRC8_INIT = 0xff;
+/* CRC8 查表数组：下标 = “当前余数 与 输入字节 异或”的结果(0~255)，值 = 更新后的余数。 */
 const unsigned char CRC8_TAB[256] = {
     0x00, 0x5e, 0xbc, 0xe2, 0x61, 0x3f, 0xdd, 0x83, 0xc2, 0x9c, 0x7e, 0x20, 0xa3, 0xfd, 0x1f, 0x41,
     0x9d, 0xc3, 0x21, 0x7f, 0xfc, 0xa2, 0x40, 0x1e, 0x5f, 0x01, 0xe3, 0xbd, 0x3e, 0x60, 0x82, 0xdc,
@@ -23,6 +45,15 @@ const unsigned char CRC8_TAB[256] = {
     0xe9, 0xb7, 0x55, 0x0b, 0x88, 0xd6, 0x34, 0x6a, 0x2b, 0x75, 0x97, 0xc9, 0x4a, 0x14, 0xf6, 0xa8,
     0x74, 0x2a, 0xc8, 0x96, 0x15, 0x4b, 0xa9, 0xf7, 0xb6, 0xe8, 0x0a, 0x54, 0xd7, 0x89, 0x6b, 0x35,
 };
+
+/*
+ * ======================= CRC16 部分 =======================
+ * 采用 16 位反射式查表（等价生成多项式 0x8005，即 CRC-16/IBM），此处用于整帧校验。
+ * wCRC_Table 下方数组：下标 = “当前 CRC 低 8 位 与 输入字节 异或”的结果(0~255)，
+ *                    值 = 该步查表得到的 16 位中间量，用于更新 CRC。
+ */
+
+/* CRC16 计算的初始值（种子）。0xFFFF 是该标准 CRC16 约定的初值。 */
 uint16_t CRC_INIT = 0xffff;
 const    uint16_t    wCRC_Table[256] = {
     0x0000, 0x1189, 0x2312, 0x329b, 0x4624, 0x57ad, 0x6536, 0x74bf,
@@ -59,10 +90,14 @@ const    uint16_t    wCRC_Table[256] = {
     0x7bc7, 0x6a4e, 0x58d5, 0x495c, 0x3de3, 0x2c6a, 0x1ef1, 0x0f78
 };
 
+/* 以下为各接口在本文件内的重复原型声明（与头文件一致，此处保留以保持原位，不产生副作用）。 */
+
 // CRC8
 void Append_CRC8_Check_Sum( uint8_t *pchMessage, uint16_t dwLength);
 uint32_t Verify_CRC8_Check_Sum( uint8_t *pchMessage, uint16_t dwLength);
 uint8_t Get_CRC8_Check_Sum( uint8_t *pchMessage, uint16_t dwLength, uint8_t ucCRC8 );
+
+/* CRC16 各接口的重复原型声明。 */
 
 // CRC16
 void Append_CRC16_Check_Sum(uint8_t * pchMessage,uint32_t dwLength);
@@ -70,8 +105,23 @@ uint32_t Verify_CRC16_Check_Sum(uint8_t *pchMessage, uint32_t dwLength);
 uint16_t Get_CRC16_Check_Sum(uint8_t *pchMessage,uint32_t dwLength,uint16_t wCRC);
 
 
-/* CRC校验 */
+/* ======================= 函数实现 ======================= */
 
+/*
+ * 函数：Get_CRC8_Check_Sum
+ * 用途：对一段内存做 CRC8 计算，返回 8 位校验码，不修改原数据。
+ * 参数：
+ *   pchMessage —— 待计算数据首地址（函数内部指针会沿数据前进，不影响调用者的指针）。
+ *   dwLength   —— 参与计算的字节数。
+ *   ucCRC8     —— 初始值/种子，本工程由调用者传入 CRC8_INIT(0xFF)。
+ * 返回：计算得到的 8 位 CRC 校验码。
+ * 步骤：
+ *   1. 循环取出 1 个字节 *pchMessage，与当前余数 ucCRC8 做异或，得到查表下标 ucIndex；
+ *   2. 用 ucIndex 查 CRC8_TAB 得到新的余数，写回 ucCRC8；
+ *   3. 重复直到全部字节处理完，此时 ucCRC8 即为最终校验码。
+ * 为什么：CRC 是逐字节“滚动”计算的——当前字节更新余数，余数又影响下一字节的结果，
+ *         最终余数综合了全部数据，任何一位变化都会改变结果，从而能发现数据错误。
+ */
 uint8_t Get_CRC8_Check_Sum( uint8_t *pchMessage, uint16_t dwLength, uint8_t ucCRC8 )
 {
 	    uint8_t ucIndex;
@@ -86,10 +136,17 @@ uint8_t Get_CRC8_Check_Sum( uint8_t *pchMessage, uint16_t dwLength, uint8_t ucCR
 
 
 /*
-** Descriptions: CRC8 Verify function
-** Input: Data to Verify,Stream length = Data + checksum
-** Output: True or False (CRC Verify Result)
-*/
+ * 函数：Verify_CRC8_Check_Sum
+ * 用途：校验“数据 + 末尾 1 字节 CRC8”整条消息是否与携带的校验码一致。
+ * 参数：
+ *   pchMessage —— 消息首地址。
+ *   dwLength   —— 消息总长度（数据字节数 + 末尾 1 字节校验码）。
+ * 返回：非 0 表示校验通过；0 表示失败（空指针 / 长度不大于 2 / 校验码不匹配）。
+ * 步骤：
+ *   1. 入参保护：指针为空或长度 <= 2 时无法把“数据”与“校验码”分开，直接判失败(0)；
+ *   2. 对前 dwLength-1 个字节重算 CRC8（种子 CRC8_INIT），得到期望值 ucExpected；
+ *   3. 将期望值与消息最后一字节 pchMessage[dwLength-1]（发送方写入的校验码）比较，相等即通过。
+ */
 uint32_t Verify_CRC8_Check_Sum( uint8_t *pchMessage, uint16_t dwLength)
 {
 	    uint8_t ucExpected = 0;
@@ -106,10 +163,17 @@ uint32_t Verify_CRC8_Check_Sum( uint8_t *pchMessage, uint16_t dwLength)
 
 
 /*
-** Descriptions: append CRC8 to the end of data
-** Input: Data to CRC and append,Stream length = Data + checksum
-** Output: True or False (CRC Verify Result)
-*/
+ * 函数：Append_CRC8_Check_Sum
+ * 用途：为消息计算 CRC8，并把校验码写入消息末尾预留的 1 个字节。
+ * 参数：
+ *   pchMessage —— 消息首地址；末尾 1 字节用于存放校验码。
+ *   dwLength   —— 消息总长度（数据字节数 + 末尾 1 字节校验码）。
+ * 返回：无。
+ * 步骤：
+ *   1. 入参保护：空指针或长度 <= 2 时直接返回，避免越界或无效写入；
+ *   2. 对前 dwLength-1 个字节计算 CRC8（种子 CRC8_INIT），得到 ucCRC；
+ *   3. 把 ucCRC 写入最后一个字节 pchMessage[dwLength-1]，发送方由此“附带”上校验码。
+ */
 void Append_CRC8_Check_Sum( uint8_t *pchMessage, uint16_t dwLength)
 {
 	    uint8_t ucCRC = 0;
@@ -126,10 +190,19 @@ void Append_CRC8_Check_Sum( uint8_t *pchMessage, uint16_t dwLength)
 
 
 /*
-** Descriptions: CRC16 checksum function
-** Input: Data to check,Stream length, initialized checksum
-** Output: CRC checksum
-*/
+ * 函数：Get_CRC16_Check_Sum
+ * 用途：对一段内存做 CRC16（反射式查表）计算，返回 16 位校验码，不修改原数据。
+ * 参数：
+ *   pchMessage —— 待计算数据首地址。
+ *   dwLength   —— 参与计算的字节数。
+ *   wCRC       —— 初始值/种子，本工程由调用者传入 CRC_INIT(0xFFFF)。
+ * 返回：计算得到的 16 位 CRC 校验码；若指针为空则返回 0xFFFF 作为错误标识。
+ * 步骤：
+ *   1. 每次取出 1 个字节 chData；
+ *   2. 用“当前 CRC 低 8 位 与 chData 异或”得到查表下标，查 wCRC_Table 得到一个 16 位值；
+ *   3. 将当前 CRC 右移 8 位后再与查表值异或，得到新的 CRC（这是反射式算法的更新公式）；
+ *   4. 重复直到全部字节处理完，返回最终的 wCRC。
+ */
 uint16_t Get_CRC16_Check_Sum(uint8_t *pchMessage,uint32_t dwLength,uint16_t wCRC)
 {
     uint8_t chData;
@@ -150,10 +223,18 @@ uint16_t Get_CRC16_Check_Sum(uint8_t *pchMessage,uint32_t dwLength,uint16_t wCRC
 
 
 /*
-** Descriptions: CRC16 Verify function
-** Input: Data to Verify,Stream length = Data + checksum
-** Output: True or False (CRC Verify Result)
-*/
+ * 函数：Verify_CRC16_Check_Sum
+ * 用途：校验“数据 + 末尾 2 字节 CRC16”整条消息是否正确。
+ * 参数：
+ *   pchMessage —— 消息首地址。
+ *   dwLength   —— 消息总长度（数据字节数 + 末尾 2 字节校验码）。
+ * 返回：非 0 表示校验通过；0 表示失败（空指针 / 长度不大于 2 / 校验码不匹配）。
+ * 步骤：
+ *   1. 入参保护：空指针或长度 <= 2 时直接判失败(false 即 0)；
+ *   2. 对前 dwLength-2 个字节重算 CRC16（种子 CRC_INIT），得到期望值 wExpected；
+ *   3. 期望值低字节应等于 pchMessage[dwLength-2]，高字节应等于 pchMessage[dwLength-1]，
+ *      两者都相等才算通过（对应发送方按“低字节在前”写入）。
+ */
 uint32_t Verify_CRC16_Check_Sum(uint8_t *pchMessage, uint32_t dwLength)
 {
 	    uint16_t wExpected = 0;
@@ -170,10 +251,17 @@ uint32_t Verify_CRC16_Check_Sum(uint8_t *pchMessage, uint32_t dwLength)
 
 
 /*
-** Descriptions: append CRC16 to the end of data
-** Input: Data to CRC and append,Stream length = Data + checksum
-** Output: True or False (CRC Verify Result)
-*/
+ * 函数：Append_CRC16_Check_Sum
+ * 用途：为消息计算 CRC16，并把校验码按“低字节在前”写入消息末尾预留的 2 个字节。
+ * 参数：
+ *   pchMessage —— 消息首地址；末尾 2 字节用于存放校验码。
+ *   dwLength   —— 消息总长度（数据字节数 + 末尾 2 字节校验码）。
+ * 返回：无。
+ * 步骤：
+ *   1. 入参保护：空指针或长度 <= 2 时直接返回；
+ *   2. 对前 dwLength-2 个字节计算 CRC16（种子 CRC_INIT），得到 wCRC；
+ *   3. 低字节写入 pchMessage[dwLength-2]、高字节写入 pchMessage[dwLength-1]（与 Verify 的读取顺序一致）。
+ */
 void Append_CRC16_Check_Sum(uint8_t * pchMessage,uint32_t dwLength)
 {
 	    uint16_t wCRC = 0;

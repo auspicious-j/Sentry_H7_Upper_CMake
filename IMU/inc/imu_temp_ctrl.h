@@ -1,23 +1,44 @@
 #ifndef IMU_TEMP_CTRL_H
 #define IMU_TEMP_CTRL_H
 
+/*
+ * ============================== 文件说明 ==============================
+ * 文件：imu_temp_ctrl.h
+ * 模块：IMU（惯性测量单元）——姿态解算与温度控制
+ *
+ * 本模块围绕 BMI088 六轴 IMU（3 轴陀螺仪 + 3 轴加速度计）工作，主要完成两件事：
+ *   1) 姿态解算：融合陀螺仪与加速度计数据，用四元数扩展卡尔曼滤波（EKF）
+ *      估计机器人的 roll / pitch / yaw 姿态角。
+ *   2) 温度控制：BMI088 的陀螺仪零偏会随芯片温度漂移，导致姿态缓慢发散。
+ *      因此在上电启动阶段加入恒温/预热逻辑：当芯片温度进入目标温度
+ *      （见 imu_temp_ctrl.c 中的 RefTemp，默认 40 ℃）附近并稳定后，先静止
+ *      采集若干次陀螺仪数据求出零偏，再进入正常解算，以减小零偏漂移。
+ *
+ * 术语速览：
+ *   - 四元数 (q)：用 4 个分量描述三维旋转，无万向锁，便于递推与滤波。
+ *   - 零偏 (bias)：传感器静止时的非零输出，是姿态发散的主要误差来源之一。
+ *   - 位姿：刚体在空间中的姿态，这里用欧拉角 roll / pitch / yaw 表示。
+ *   - EKF：扩展卡尔曼滤波，一种非线性状态估计方法。
+ * =====================================================================
+ */
+
 typedef struct
 {
-    float q[4]; // 四元数估计值 // ��Ԫ������ֵ
-    float gyro[3]; // 角速度 // ���ٶ�
-    float accel[3]; // 加速度 // ���ٶ�
-	    float temp; // 温度 // �¶�
-    // λ��
-    // 位姿
-    float roll;
-    float pitch;
-    float yaw;
-    float YawTotalAngle;
+    float q[4]; // 四元数估计值：姿态的四分量表示，单位无量纲，范围约 [-1, 1]
+    float gyro[3]; // 三轴角速度：索引 0/1/2 对应 X/Y/Z 轴，单位 rad/s（已做零偏补偿）
+    float accel[3]; // 三轴加速度：索引 0/1/2 对应 X/Y/Z 轴，单位 m/s^2（含重力分量）
+	    float temp; // 芯片温度：BMI088 温度读数，单位 ℃，用于温度补偿与恒温判断
+    // 位姿：刚体在空间中的姿态（以下 4 个成员单位均为弧度 rad）
+    // 注：结构体未定义位置类成员，此处只承载姿态相关的量
+    float roll; // 横滚角：绕 X 轴旋转角，单位 rad
+    float pitch; // 俯仰角：绕 Y 轴旋转角，单位 rad
+    float yaw; // 偏航角：绕 Z 轴旋转角，单位 rad，范围一般 [-π, π]
+    float YawTotalAngle; // 偏航累计角：不折叠，可超过 ±π，用于连续跟踪朝向，单位 rad
 } INS_t;
 
-extern INS_t INS;
+extern INS_t INS; // 全局 IMU 状态实例：保存最近一次采样与解算后的姿态、角速度、加速度、温度
 
-void INS_Init(void);
-void IMU_task(void * argument);
+void INS_Init(void); // 初始化 IMU：配置四元数 EKF 参数，并阻塞等待 BMI088 初始化成功
+void IMU_task(void * argument); // IMU 主任务函数（FreeRTOS 任务体）：周期采样并更新姿态
 
 #endif // IMU_TEMP_CTRL_H

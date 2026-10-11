@@ -1,0 +1,2 @@
+IMU/BMI088/inc/BMI088driver.h CODE_EQUAL=True oldAllCR=True newAllCR=True BOM=False
+IMU/BMI088/BMI088driver.c CODE_EQUAL=True oldAllCR=True newAllCR=True BOM=False

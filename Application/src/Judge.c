@@ -1,93 +1,114 @@
-#include "Judge.h"
-#include "string.h"
-#include "cRc.h"
+/*
+ * Judge.c —— 裁判系统数据解析实现。
+ *
+ * 职责：
+ *  1) 接收裁判系统经 USART1(DMA + 空闲中断)下发的原始字节流，按协议拆帧；
+ *  2) 对每一帧做帧头 CRC8 与整帧 CRC16 校验，校验通过后按命令码把数据段
+ *     拷贝进对应的全局结构体(GameState/PowerHeatData 等)；
+ *  3) 通过 JUDGE_xxx 系列函数向外提供统一的读取接口；
+ *  4) Judge_update() 把分散的数据汇总为 USER_JudgeData，供上层/AI 使用。
+ *
+ * 数据流向：
+ *  硬件 USART1 → DMA → usart1RxBuf(接收缓冲区) → 中断回调
+ *  → JUDGE_Read_Data()(拆帧 + 校验 + 分发) → 各 ext_xxx_t 全局结构体
+ *  → Judge_update() → USER_JudgeData → 其他模块。
+ *
+ * 注意：本文件主要负责“接收/解析”，发送相关逻辑(Task_Judge_Callback)当前为空。
+ */
+#include "Judge.h"        //裁判系统数据结构与接口定义
+#include "string.h"       //memcpy / memset
+#include "cRc.h"          //CRC8 / CRC16 校验
+#include "usart.h"        //USART1 句柄 huart1
+#include "userfreertos.h" //FreeRTOS 相关
 #include "usart.h"
-#include "userfreertos.h"
-#include "usart.h"
-#include "USER_B2B.h"
-#include "myQueue.h"
+#include "USER_B2B.h"     //板间通信
+#include "myQueue.h"      //队列
 
 #include <stdbool.h>
-#define DISABLE_JUDGE_TASK
+#define DISABLE_JUDGE_TASK   //定义后禁用裁判系统任务(见文件末尾 #ifdef EN_JUDGE_TASK)
 
 /*****************系统数据定义**********************/
-ext_game_status_t GameState;						   // 0x0001
-ext_game_result_t GameResult;						   // 0x0002
-ext_game_robot_HP_t GameRobotHP;					   // 0x0003
-ext_event_data_t EventData;							   // 0x0101
-ext_referee_warning_t RefereeWarning;				   // 0x0104
-ext_dart_info_t DartRemainingTime;					   // 0x0105
-ext_game_robot_status_t GameRobotState;				   // 0x0201
-ext_power_heat_data_t PowerHeatData;				   // 0x0202
-ext_game_robot_pos_t GameRobotPos;					   // 0x0203
-ext_buff_musk_t BuffMusk;							   // 0x0204
-ext_robot_hurt_t RobotHurt;							   // 0x0206
-ext_shoot_data_t ShootData;							   // 0x0207
-ext_bullet_remaining_t BulletRemaining;				   // 0x0208
-ext_rfid_status_t RfidStatus;						   // 0x0209
-ext_dart_client_cmd_t DartClientCmd;				   // 0x020A
-sentry_info_t    SentryDecision;			//0x20D
+// 各命令码对应的数据段全局实例(名字 → 命令码 ID)，由 JUDGE_Read_Data 填充
+ext_game_status_t GameState;						   // 0x0001 比赛状态
+ext_game_result_t GameResult;						   // 0x0002 比赛结果
+ext_game_robot_HP_t GameRobotHP;					   // 0x0003 各方机器人血量
+ext_event_data_t EventData;							   // 0x0101 场地事件
+ext_referee_warning_t RefereeWarning;				   // 0x0104 裁判警告
+ext_dart_info_t DartRemainingTime;					   // 0x0105 飞镖发射口倒计时
+ext_game_robot_status_t GameRobotState;				   // 0x0201 机器人状态(血量/热量上限/功率上限等)
+ext_power_heat_data_t PowerHeatData;				   // 0x0202 实时功率热量
+ext_game_robot_pos_t GameRobotPos;					   // 0x0203 机器人位置
+ext_buff_musk_t BuffMusk;							   // 0x0204 机器人增益
+ext_robot_hurt_t RobotHurt;							   // 0x0206 伤害状态
+ext_shoot_data_t ShootData;							   // 0x0207 实时射击
+ext_bullet_remaining_t BulletRemaining;				   // 0x0208 子弹剩余发射数
+ext_rfid_status_t RfidStatus;						   // 0x0209 RFID 状态
+ext_dart_client_cmd_t DartClientCmd;				   // 0x020A 飞镖客户端指令
+sentry_info_t    SentryDecision;			//0x20D 哨兵当前状态
 
 
-xFrameHeader FrameHeader; // 发送帧头信息
+
+xFrameHeader FrameHeader; // 帧头解析暂存：每次解析前先把 5 字节帧头拷贝到这里
 /****************************************************/
 
-JudgeData_t USER_JudgeData;
-USER_SentryCmd_t USER_SentryCmd;
+JudgeData_t USER_JudgeData;      // 汇总后的裁判数据(对外接口使用)
+USER_SentryCmd_t USER_SentryCmd; // 哨兵机器人指令(本机决策输出)
 
 
-bool Judge_Data_TF = false; // 裁判数据是否可用,辅助函数调用
+bool Judge_Data_TF = false; // 裁判数据是否可用：true 表示最近一帧 CRC 校验通过(辅助函数判断用)
 
 // 发送队列
 Queue judgeQueue = EMPTY_QUEUE;
 // 发送队列数据保存区
 JudgeTxFrame judgeQueueBuf[JUDGE_QUEUE_SIZE];
 
-// 串口接收缓冲区
+// 串口接收缓冲区(DMA 直接把 USART1 收到的数据写入这里)
 uint8_t usart1RxBuf[JUDGE_MAX_RX_LENGTH];
 
-uint16_t shootNum = 0; // 统计发弹量
+uint16_t shootNum = 0; // 统计发弹量：每收到一帧 0x0207 射击数据 +1
 
 /**************裁判系统数据辅助****************/
 
 /**
- * @brief  读取裁判数据,中断中读取保证速度
- * @param  缓存数据
- * @retval 是否对正误判断做处理
- * @attention  在此判断帧头和CRC校验,无误再写入数据，不重复判断帧头
+ * @brief  解析一段裁判系统数据(可能含多帧)，逐帧完成校验并按命令码分发到对应结构体。
+ * @param  ReadFromUsart 指向接收缓冲区首字节的指针(通常为 usart1RxBuf)。
+ * @retval true  成功解析出至少一帧(帧头 CRC8 与整帧 CRC16 均通过)
+ * @retval false 未解析出有效帧(起始字节不对或校验失败)
+ * @attention 为保证速度，本函数通常在串口接收中断/回调中调用；内部会自动递归处理
+ *            同一包中的多帧数据；校验通过后才写数据，避免脏数据污染全局变量。
  */
 bool JUDGE_Read_Data(uint8_t *ReadFromUsart)
 {
-    bool retval_tf = false; // 数据正确与否标志,每次调用读取裁判系统数据函数都先默认为错误
+    bool retval_tf = false; // 数据正确与否标志，每次调用先默认视为错误
 
-    uint16_t judge_length; // 统计一帧数据长度
-    int CmdID = 0;		   // 数据命令码解析
+    uint16_t judge_length; // 统计一帧数据长度(用于 CRC16 校验)
+    int CmdID = 0;		   // 数据命令码解析结果
 
 	/***------------------*****/
-	// 无数据包，则不作任何处理
+	// 空指针保护：无数据包则不处理(返回 -1 表示入参非法)
     if (ReadFromUsart == NULL)
 	{
 	    return -1;
 	}
-	// 写入帧头数据,用于判断是否开始存储裁判数据
+	// 先把 5 字节帧头拷贝到 FrameHeader，后续据此计算整帧长度
     memcpy(&FrameHeader, ReadFromUsart, LEN_HEADER);
 
-	// 判断帧头数据是否为0xA5
+	// 判断起始字节是否为 0xA5，是则说明此处可能是一帧的起点
     if (ReadFromUsart[SOF] == JUDGE_FRAME_HEADER)
 	{
-		// 帧头CRC8校验
+		// 帧头 CRC8 校验：只校验前 5 字节，避免把总线噪声误判成帧头
 	    if (Verify_CRC8_Check_Sum(ReadFromUsart, LEN_HEADER))
 		{
-			// 统计一帧数据长度,用于CR16校验
+			// 计算整帧长度 = 数据段长度 + 帧头5 + 命令码2 + 帧尾2，用于 CRC16 校验
 		    judge_length = ReadFromUsart[DATA_LENGTH] + LEN_HEADER + LEN_CMDID + LEN_TAIL;
 			;
 
-			// 帧尾CRC16校验
+			// 整帧 CRC16 校验：帧头+命令码+数据段全部参与，通过才认为数据可信
 		    if (Verify_CRC16_Check_Sum(ReadFromUsart, judge_length))
 			{
-			    retval_tf = true; // 都校验过了则说明数据可用
+			    retval_tf = true; // 两道校验都通过，这一帧数据可用
 
-			    CmdID = (ReadFromUsart[6] << 8 | ReadFromUsart[5]);
+			    CmdID = (ReadFromUsart[6] << 8 | ReadFromUsart[5]); // 命令码为小端：高字节在偏移6、低字节在偏移5
 				// 解析数据命令码,将数据拷贝到相应结构体中(注意拷贝数据的长度)
 			    switch (CmdID)
 				{

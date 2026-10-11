@@ -1,3 +1,25 @@
+/**
+ * @file DebugSnapshot.hpp
+ * @brief 全局调试快照（Debug Snapshot）：一族供调试器直接观察/改写的状态镜像结构体。
+ *
+ * 背景：本工程是 RoboMaster 哨兵机器人 STM32H7 上位机（FreeRTOS + C++17 插件框架），
+ * 业务状态封装在 C++ 节点对象内部，用 Keil / Ozone / VS Code 的 Watch 窗口很难直接看到。
+ * 为此，框架把关心的关键字段定期拷贝到本文件定义的 POD 结构体中，并统一挂在全局变量
+ * g_robot_debug 上，让调试器可以按名字定位、逐字段查看。
+ *
+ * 为什么用 volatile：
+ *   这些字段会被业务代码之外的「调试器」随时读、甚至写。volatile 要求编译器每次访问都
+ *   真正落到内存，禁止把它缓存进寄存器或当作无用赋值消除；否则 Watch 窗口可能读到过期
+ *   值、或人写进去的请求被优化掉。注意：volatile 只保证「不被优化」，不保证原子性，
+ *   多字节字段在中断上下文并发写时仍可能被读到「半更新」的值。
+ *
+ * 读写约定：
+ *   - 标注「【Watch 可改】」的字段是调试输入（requested_* 以及 *_request / *_enabled 等），
+ *     由人在调试器里改值来施加激励；其余字段为观察输出，只读。
+ *   - 观察字段由框架按帧刷新，不追求与业务数据强一致，只求「可观察」。
+ *
+ * 结构体全部为 POD 类型（可平凡拷贝）；成员用 {} 就地初始化，未显式给值即为 0。
+ */
 #ifndef ROBOT_DEBUG_SNAPSHOT_HPP
 #define ROBOT_DEBUG_SNAPSHOT_HPP
 
@@ -5,146 +27,156 @@
 
 namespace robot::platform {
 
-// 底盘观察数据；online 仅代表下板通信在线，不代表各轮电机在线。
+// 平台层命名空间：存放与具体硬件解耦的调试快照定义。
+
+// 底盘观察数据：镜像下板（底盘板）回传的底盘状态，供 Watch 查看。
+// 注意：online 仅代表「上下板通信在线」，并不代表每个轮电机都在线。
 struct ChassisDebugSnapshot {
-    float steering_deg[4]{}; // 下板单圈舵角，度，未扣零偏。
-    int16_t drive_rpm[4]{}; // 下板原始轮电机转速。
-    uint32_t receive_count{0U}; // 实际板间帧接收次数。
-    uint32_t age_ms{0U}; // 最近样本年龄，received=1 时有效。
-    uint32_t frame_id{0U}; // 观察节点最后发布的插件帧号。
-    uint8_t received{0U}; // 是否收到过下板帧。
-    uint8_t online{0U}; // 最近 100 ms 内是否收到下板帧（阈值可配置）。
-    uint8_t lower_feedback{0U}; // 下板 FEEDBACK 原值。
+    float steering_deg[4]{}; // 下板获取的 4 个舵向单圈角度，单位：度（°）；未扣零偏。默认 0。
+    int16_t drive_rpm[4]{}; // 下板原始 4 个轮电机转速，单位：rpm。默认 0。
+    uint32_t receive_count{0U}; // 累计实际收到的板间帧数量，只增不减。默认 0。
+    uint32_t age_ms{0U}; // 最近一帧样本的年龄，单位：ms；仅当 received=1 时有效。默认 0。
+    uint32_t frame_id{0U}; // 观察节点最后一次发布时对应的插件帧号。默认 0。
+    uint8_t received{0U}; // 是否曾收到过下板帧：0=从未收到，1=已收到。默认 0。
+    uint8_t online{0U}; // 最近 100 ms 内是否收到下板帧（阈值可配置）：0=离线，1=在线。默认 0。
+    uint8_t lower_feedback{0U}; // 下板 FEEDBACK 标志的原始值（未做任何解释）。默认 0。
 };
 
-// 一个演示节点的执行记录。
+// 一个演示节点的执行记录：统计某框架节点在本次运行中的调度与激活情况。
 struct BranchNodeDebugSnapshot {
-    uint32_t execution_count{0U}; // 累积执行次数。
-    uint32_t branch_skip_count{0U}; // 条件未选的次数。
-    uint32_t blocked_count{0U}; // 输入或运行状态阻塞次数。
-    uint8_t frame_state{0U}; // NodeFrameState 数值。
-    uint16_t frame_order{0xFFFFU}; // 本帧实际执行序号，未执行为65535。
-    uint32_t enter_count{0U}; // 节点进入通知次数。
-    uint32_t exit_count{0U}; // 节点退出通知次数。
-    uint32_t plan_change_count{0U}; // 保持激活时计划切换通知次数。
-    uint8_t active{0U}; // 帧边界激活状态，不等同于输入有效。
+    uint32_t execution_count{0U}; // 该节点被实际执行的累计次数。默认 0。
+    uint32_t branch_skip_count{0U}; // 因条件分支未选中而跳过的累计次数。默认 0。
+    uint32_t blocked_count{0U}; // 因输入无效或运行状态未就绪而被阻塞的累计次数。默认 0。
+    uint8_t frame_state{0U}; // NodeFrameState 状态机枚举的数值。默认 0。
+    uint16_t frame_order{0xFFFFU}; // 本帧内的实际执行序号；未执行时为 0xFFFF（65535）。默认 0xFFFF。
+    uint32_t enter_count{0U}; // 收到「节点进入」通知的累计次数。默认 0。
+    uint32_t exit_count{0U}; // 收到「节点退出」通知的累计次数。默认 0。
+    uint32_t plan_change_count{0U}; // 保持激活期间发生计划切换的通知次数。默认 0。
+    uint8_t active{0U}; // 帧边界上的激活状态：0=未激活，1=激活；不等于「输入有效」。默认 0。
 };
 
-// 一条路线的两个内部节点及末端结果。
+// 一条分支路线的观察：包含该路线上的两级内部节点统计与路线末端结果。
 struct BranchRouteDebugSnapshot {
-    BranchNodeDebugSnapshot first{}; // 第一级状态。
-    BranchNodeDebugSnapshot second{}; // 第二级状态。
-    uint32_t first_runs_since_enter{0U}; // 第一级本次激活执行次数。
-    uint32_t second_runs_since_enter{0U}; // 第二级本次激活执行次数。
-    float value{0.0f}; // 本帧有效结果，无效时置 0。
-    uint8_t valid{0U}; // 路线末端是否有本帧结果。
+    BranchNodeDebugSnapshot first{}; // 第一级节点的执行统计。
+    BranchNodeDebugSnapshot second{}; // 第二级节点的执行统计。
+    uint32_t first_runs_since_enter{0U}; // 第一级节点自本次激活以来的执行次数。默认 0。
+    uint32_t second_runs_since_enter{0U}; // 第二级节点自本次激活以来的执行次数。默认 0。
+    float value{0.0f}; // 本帧路线末端的有效结果；无效时被写为 0。默认 0.0f。
+    uint8_t valid{0U}; // 路线末端本帧是否有有效结果：0=无，1=有。默认 0。
 };
 
-// 固定图条件分支观察；只有 requested_route 作为调试输入。
+// 固定图条件分支（A/B 二选一）的观察快照。
+// 约定：仅 requested_route 是调试输入（可在 Watch 中直接改写），其余字段均为观察输出。
 struct BranchDebugSnapshot {
-    uint32_t requested_route{0U}; // Watch 可改：0=A、1=B。
-    uint32_t active_route{0U}; // 本帧实际采用的路线。
-    uint32_t generation{0U}; // 路径切换版本。
-    uint32_t switch_count{0U}; // 路线实际切换次数。
-    uint32_t rejected_frames{0U}; // 请求非法的帧数，保留上一合法路线。
-    uint32_t frame_id{0U}; // 当前调试帧号。
-    uint32_t output_frame_id{0U}; // 汇合有效输出帧号。
-    float input_value{0.0f}; // 公共输入，预期 10。
-    float output_value{0.0f}; // 有效时 A=22、B=27。
-    uint8_t output_valid{0U}; // 汇合输出是否为本帧有效数据。
-    BranchNodeDebugSnapshot source{}; // 公共节点执行统计。
-    BranchNodeDebugSnapshot merge{}; // 汇合节点执行统计。
-    BranchRouteDebugSnapshot routes[2]{}; // A/B 两条路线的统计。
+    uint32_t requested_route{0U}; // 【Watch 可改】请求的路线：0=A，1=B；其他值为非法。默认 0。
+    uint32_t active_route{0U}; // 本帧实际采用的路线：0=A，1=B。默认 0。
+    uint32_t generation{0U}; // 路径切换版本号，每次切换自增。默认 0。
+    uint32_t switch_count{0U}; // 路线实际发生切换的累计次数。默认 0。
+    uint32_t rejected_frames{0U}; // 因请求非法而被拒绝的帧数（非法时保留上一合法路线）。默认 0。
+    uint32_t frame_id{0U}; // 当前调试帧号。默认 0。
+    uint32_t output_frame_id{0U}; // 汇合节点产生有效输出时对应的帧号。默认 0。
+    float input_value{0.0f}; // 公共输入值；正常运行时预期为 10。默认 0.0f。
+    float output_value{0.0f}; // 汇合输出值；有效时 A 路线为 22、B 路线为 27。默认 0.0f。
+    uint8_t output_valid{0U}; // 汇合输出本帧是否有效：0=无效，1=有效。默认 0。
+    BranchNodeDebugSnapshot source{}; // 公共源节点的执行统计。
+    BranchNodeDebugSnapshot merge{}; // 汇合节点的执行统计。
+    BranchRouteDebugSnapshot routes[2]{}; // 两条路线的统计：routes[0]=A，routes[1]=B。
 };
 
-// 单路算术结果及其输入/状态身份；present=0 时其余字段不表示有效结果。
+// 单路算术结果及其身份信息（输入序号 / 状态世代），用于判断两路结果是否同源同步。
+// present=0 时，其余字段不代表有效结果。
 struct ComparisonSampleDebugSnapshot {
-    uint64_t sampled_at_us{0U};
-    uint32_t input_sequence{0U};
-    uint32_t state_epoch{0U};
-    uint32_t step{0U};
-    double value[2]{}; // [0] 有界累计值（候选含偏差），[1] 实际推进次数。
-    uint8_t present{0U};
+    uint64_t sampled_at_us{0U}; // 采样时刻，单位：us（微秒）。默认 0。
+    uint32_t input_sequence{0U}; // 本次采样所用输入的序号，用来判断两路是否对齐。默认 0。
+    uint32_t state_epoch{0U}; // 状态世代号：每次重置自增，用于识别重置边界。默认 0。
+    uint32_t step{0U}; // 该路的推进步序号。默认 0。
+    double value[2]{}; // [0] 有界累计值（候选侧含偏差）；[1] 实际推进次数。默认全 0。
+    uint8_t present{0U}; // 本次采样是否有效：0=无效，1=有效。默认 0。
 };
 
-// 通用算术演示：前五项可写，其余字段仅观察。
+// 通用算术演示快照：比对「参考实现」与「候选实现」的数值差异。
+// 约定：前五项为调试输入（可在 Watch 中改写以施加激励），其余字段均为观察输出。
 struct ComparisonDebugSnapshot {
-    int32_t input_value{7}; // Watch 请求，合法范围 -1000..1000。
-    int32_t candidate_bias{0}; // Watch 输出偏差请求，合法范围 -1000..1000。
-    uint32_t reset_all_request{0U}; // 改为不同数值触发一次共同重置。
-    uint32_t reset_candidate_request{0U}; // 改为不同数值触发一次候选重置。
-    uint8_t pause_candidate{0U}; // 非 0 暂停候选，不补算漏帧。
-    int32_t applied_input_value{7}; // 最近接受的合法输入。
-    int32_t applied_candidate_bias{0}; // 最近接受的合法输出偏差。
-    uint32_t frame_id{0U};
-    ComparisonSampleDebugSnapshot reference{};
-    ComparisonSampleDebugSnapshot candidate{};
-    uint8_t status{0U}; // Missing=0, Unaligned=1, InvalidTolerance=2, NonFinite=3, Equal=4, Different=5。
-    uint8_t difference_valid{0U}; // 只有 Equal/Different 才能解释当前差值。
-    double difference[2]{}; // candidate - reference。
-    double max_abs_difference{0.0}; // 当前有效比较的最大绝对差。
-    double historical_max_abs_difference{0.0}; // 自启动以来，不随状态重置清零。
-    uint32_t equal_count{0U};
-    uint32_t different_count{0U};
-    uint32_t unaligned_count{0U};
-    uint32_t invalid_count{0U}; // 缺失/非法结果；调度跳过不计入执行次数。
-    uint32_t rejected_frames{0U}; // 输入或偏差非法的帧数，保留上次合法参数。
+    int32_t input_value{7}; // 【Watch 可改】输入请求值；合法范围 -1000..1000，越界帧会被拒绝。默认 7。
+    int32_t candidate_bias{0}; // 【Watch 可改】候选侧输出偏差请求；合法范围 -1000..1000。默认 0。
+    uint32_t reset_all_request{0U}; // 【Watch 可改】改成与上次不同的值即触发一次「共同重置」。默认 0。
+    uint32_t reset_candidate_request{0U}; // 【Watch 可改】改成不同值即触发一次「候选侧重置」。默认 0。
+    uint8_t pause_candidate{0U}; // 【Watch 可改】非 0 时暂停候选侧推进；不补算暂停期间漏掉的帧。默认 0。
+    int32_t applied_input_value{7}; // 最近一次被接受的合法输入值（实际生效值）。默认 7。
+    int32_t applied_candidate_bias{0}; // 最近一次被接受的合法候选偏差（实际生效值）。默认 0。
+    uint32_t frame_id{0U}; // 当前调试帧号。默认 0。
+    ComparisonSampleDebugSnapshot reference{}; // 参考侧采样。
+    ComparisonSampleDebugSnapshot candidate{}; // 候选侧采样。
+    uint8_t status{0U}; // 比较状态：Missing=0, Unaligned=1, InvalidTolerance=2, NonFinite=3, Equal=4, Different=5。默认 0。
+    uint8_t difference_valid{0U}; // 当前差值是否可解释：仅当 status 为 Equal/Different 时为 1。默认 0。
+    double difference[2]{}; // 差值，定义为 candidate - reference。默认全 0。
+    double max_abs_difference{0.0}; // 当前有效比较中的最大绝对差（每次比较刷新）。默认 0.0。
+    double historical_max_abs_difference{0.0}; // 自启动以来的历史最大绝对差；不随状态重置清零。默认 0.0。
+    uint32_t equal_count{0U}; // 判定为 Equal 的累计次数。默认 0。
+    uint32_t different_count{0U}; // 判定为 Different 的累计次数。默认 0。
+    uint32_t unaligned_count{0U}; // 判定为 Unaligned（两路不同源）的累计次数。默认 0。
+    uint32_t invalid_count{0U}; // 结果为缺失/非法的累计次数；因调度跳过不算执行、不计入此值。默认 0。
+    uint32_t rejected_frames{0U}; // 因输入或偏差非法而被拒绝的帧数（保留上次合法参数）。默认 0。
 };
 
-// 异步最新值邮箱观察；序号只在生产者发布时变化。
+// 异步「最新值邮箱」（SnapshotMailbox）观察数据：生产者发新值、消费者取最新值。
+// 序号只在生产者真正发布时变化，可用来判断消费者是否读到了新数据。
 struct SnapshotDebugSnapshot {
-    uint32_t frame_id{0U}; // 最近消费者帧号。
-    uint32_t sequence{0U}; // 最近发布序号。
-    uint32_t read_count{0U}; // 消费次数。
-    uint64_t age_us{0U}; // 最近样本年龄。
-    uint8_t status{0U}; // SnapshotStatus 数值。
-    uint8_t publish_enabled{1U}; // Watch 可写，0暂停发布。
-    uint16_t reserved{0U}; // 对齐保留。
+    uint32_t frame_id{0U}; // 最近一次消费者所在的帧号。默认 0。
+    uint32_t sequence{0U}; // 最近一次发布产生的序号（生产者侧）。默认 0。
+    uint32_t read_count{0U}; // 消费者读取的累计次数。默认 0。
+    uint64_t age_us{0U}; // 最近一帧样本的年龄，单位：us（微秒）。默认 0。
+    uint8_t status{0U}; // SnapshotStatus 枚举的数值。默认 0。
+    uint8_t publish_enabled{1U}; // 【Watch 可改】0=暂停发布，非 0=发布；默认 1（上电即发布）。
+    uint16_t reserved{0U}; // 对齐填充的保留字段，勿使用。默认 0。
 };
 
-// 执行计划演示；只有 requested_plan 是调试输入。
+// 执行计划演示快照：观察「计划」（一组节点的执行顺序）的切换。
+// 约定：仅 requested_plan 是调试输入，其余字段均为观察输出。
 struct PlanDebugSnapshot {
-    uint32_t requested_plan{0U}; // Watch可写：0=A先B后，1=B先A后。
-    uint32_t active_plan{0U}; // 本帧采用的计划。
-    uint32_t plan_count{1U}; // 根图声明计划数量。
-    uint32_t failed_plan{0xFFFFU}; // 失败计划编号，无具体失败为65535。
-    uint32_t switch_count{0U}; // 实际计划切换次数。
-    uint32_t generation{0U}; // 计划版本。
-    uint32_t rejected_frames{0U}; // 请求非法的帧数。
-    uint32_t frame_id{0U}; // 本次观测帧号。
-    BranchNodeDebugSnapshot a{}; // 探针A状态和执行序号。
-    BranchNodeDebugSnapshot b{}; // 探针B状态和执行序号。
+    uint32_t requested_plan{0U}; // 【Watch 可改】请求的计划：0=A 先 B 后，1=B 先 A 后。默认 0。
+    uint32_t active_plan{0U}; // 本帧实际采用的计划编号。默认 0。
+    uint32_t plan_count{1U}; // 根图声明的计划总数。默认 1。
+    uint32_t failed_plan{0xFFFFU}; // 失败的计划编号；没有具体失败时为 0xFFFF（65535）。默认 0xFFFF。
+    uint32_t switch_count{0U}; // 计划实际切换的累计次数。默认 0。
+    uint32_t generation{0U}; // 计划版本号。默认 0。
+    uint32_t rejected_frames{0U}; // 因请求非法而被拒绝的帧数。默认 0。
+    uint32_t frame_id{0U}; // 本帧观测到的帧号。默认 0。
+    BranchNodeDebugSnapshot a{}; // 探针 A 的状态与执行序号。
+    BranchNodeDebugSnapshot b{}; // 探针 B 的状态与执行序号。
 };
 
-// Keil Watch 可直接观察的固定调试快照；业务状态仍封装在节点对象内。
+// 顶层调试快照：Keil / Ozone 的 Watch 窗口可直接观察的固定结构。
+// 业务状态仍封装在各自的节点对象内部，这里只保存镜像副本。
 struct RobotDebugSnapshot {
-    volatile uint32_t frame_id; // 当前帧号。
-    volatile uint32_t last_frame_duration_us; // 最近帧耗时。
-    volatile uint32_t max_frame_duration_us; // 最大帧耗时。
-    volatile uint32_t last_node_duration_us; // 最近节点耗时。
-    volatile uint32_t max_node_duration_us; // 最大节点耗时。
-    volatile uint32_t graph_node_count; // 图节点数。
-    volatile uint32_t graph_edge_count; // 图边数。
-    volatile uint32_t init_error; // 初始化错误码。
-    volatile uint32_t fault_flags; // 故障标志。
-    volatile uint8_t initialized; // 初始化完成标志。
-    volatile uint8_t running; // 运行标志。
-    volatile uint8_t last_result; // 最近处理结果。
-    volatile uint8_t reserved; // 保留字节。
-    ChassisDebugSnapshot chassis{}; // 随全局 volatile 快照一起供 Watch 读取。
-    BranchDebugSnapshot branch{}; // 条件分支选择入口及结果。
-    PlanDebugSnapshot plan{}; // 执行顺序切换入口及结果。
-    SnapshotDebugSnapshot snapshot{}; // 异步快照年龄和序号。
-    ComparisonDebugSnapshot comparison{}; // 独立状态算术比较及请求入口。
+    volatile uint32_t frame_id; // 当前帧号，每帧自增。
+    volatile uint32_t last_frame_duration_us; // 最近一帧的耗时，单位：us。
+    volatile uint32_t max_frame_duration_us; // 历史最大帧耗时，单位：us。
+    volatile uint32_t last_node_duration_us; // 最近一个节点的耗时，单位：us。
+    volatile uint32_t max_node_duration_us; // 历史最大单节点耗时，单位：us。
+    volatile uint32_t graph_node_count; // 当前插件图的节点数量。
+    volatile uint32_t graph_edge_count; // 当前插件图的边（连接）数量。
+    volatile uint32_t init_error; // 初始化错误码；0=无错误。
+    volatile uint32_t fault_flags; // 故障标志位（按位组合）；0=无故障。
+    volatile uint8_t initialized; // 初始化完成标志：0=未完成，1=已完成。
+    volatile uint8_t running; // 运行标志：0=停止，1=运行中。
+    volatile uint8_t last_result; // 最近一次处理的返回结果码。
+    volatile uint8_t reserved; // 保留字节（对齐用），勿使用。
+    ChassisDebugSnapshot chassis{}; // 底盘观察数据；随全局 volatile 快照一起供 Watch 读取。
+    BranchDebugSnapshot branch{}; // 条件分支选择的调试入口与结果。
+    PlanDebugSnapshot plan{}; // 执行计划切换的调试入口与结果。
+    SnapshotDebugSnapshot snapshot{}; // 异步快照的年龄与序号。
+    ComparisonDebugSnapshot comparison{}; // 独立状态的算术比较及请求入口。
 };
 
 } // namespace robot::platform
 
-// 使用 C 链接名，方便 Keil Watch 直接通过 g_robot_debug 查找。
+// 全局调试快照实例：用 C 链接名（extern "C"）导出，避免 C++ 名字修饰，
+// 使 Keil / Ozone 可以按名字 g_robot_debug 直接定位该符号。
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern volatile robot::platform::RobotDebugSnapshot g_robot_debug;
+extern volatile robot::platform::RobotDebugSnapshot g_robot_debug; // 唯一的全局调试快照实例，定义在 DebugSnapshot.cpp。
 #ifdef __cplusplus
 }
 #endif

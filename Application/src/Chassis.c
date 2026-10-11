@@ -19,7 +19,7 @@
 
 #include <math.h>
 
-float vx, vy, vw;  //AI传来的旋转速度
+float vx, vy, vw;  // 视觉(AI)下发的底盘速度指令：vx=左右平移(mm/s)、vy=前后平移(mm/s)、vw=自转(rad/s)
 
 /*======================= 全局变量定义 =======================*/
 Chassis_t chassis = {0}; // 底盘全局状态结构体：尺寸信息/四个舵轮电机/移动速度/旋转信息/模式等（定义详见Chassis.h）
@@ -295,8 +295,7 @@ void Task_Chassis_Callback()
     wheelvx[3] = chassis.move.vx - chassis.move.vw * rotateRatio[3] / 1.414f; // 右后轮速度x分量（自转分量取反）
     wheelvy[3] = chassis.move.vy - chassis.move.vw * rotateRatio[3] / 1.414f; // 右后轮速度y分量（自转分量取反）
 
-    //    舵轮解算
-    //	舵轮解算
+    // 舵轮解算：由各轮合速度矢量解算驱动轮目标转速(RPM)与转向目标角度(°)
     for (uint8_t i = 0; i < 4; i++)
     {
         float target_angle;
@@ -304,34 +303,29 @@ void Task_Chassis_Callback()
 
         if (wheelRPM != 0)
         {
-            target_angle = atan2f(-wheelvy[i], wheelvx[i]) / PI * 180;
-        // 有目标轮速：根据合速度矢量方向解算舵轮目标角度
+            target_angle = atan2f(-wheelvy[i], wheelvx[i]) / PI * 180; // 有目标轮速：由合速度矢量 atan2(-vy, vx) 解算舵轮目标朝向(°)
         }
-        else // 一般情况：先求合速度与x轴夹角|arctan(vy/vx)|，再按象限修正 //当目标速度为0 且电机速度已经减下来时  舵回到正常角度
-        { //																																					|y/|
-            static const float default_angle[4] = {135, 45, 45, 135};
-            target_angle = default_angle[i];
-        } //																																					|
+        else // 目标轮速为0：舵轮摆回默认停放角度（对角对称姿态，便于随时起步）
+        {
+            static const float default_angle[4] = {135, 45, 45, 135}; // 四轮默认停放舵角(°)：左前/右前/左后/右后
+            target_angle = default_angle[i]; // 取本轮对应的默认停放舵角
+        }
 
-        target_angle = ModularDegreeTowards(target_angle, chassis.motors[i].now_angle);
+        target_angle = ModularDegreeTowards(target_angle, chassis.motors[i].now_angle); // 归一化到相对当前舵角的最短方向差(°)
 
-        if (target_angle - chassis.motors[i].now_angle >= 90)
+        if (target_angle - chassis.motors[i].now_angle >= 90) // 舵角差≥90°：舵角反转180°并同步反转轮速（合成运动方向不变，缩短舵机转向行程）
         {
             target_angle -= 180.0f;
             wheelRPM *= -1.0f;
-        // 按合速度所在象限把夹角修正为0~360°的舵角（θ为arctan求得的锐角）
         }
-        else if (target_angle - chassis.motors[i].now_angle < -90)
+        else if (target_angle - chassis.motors[i].now_angle < -90) // 舵角差<-90°：同上处理，舵角+180°、轮速取反
         {
             target_angle += 180.0f;
             wheelRPM *= -1.0f;
-        // 目标轮速为0：无速度分量时让舵轮摆回默认停放角度（对角对称姿态，方便随时起步）
         }
 
-        chassis.motors[i].targetTurnAngle = target_angle;
-        chassis.motors[i].targetDriveSpeed = wheelRPM;
-    // 最短路径处理：把舵角差归一化到[-180°,180°]，让舵机朝最近方向转向
-    // 若舵角差超过90°：舵角反转180°并同步反转轮速（等效方向不变），减少舵机转向时间
+        chassis.motors[i].targetTurnAngle = target_angle; // 写入转向电机目标角度(°)
+        chassis.motors[i].targetDriveSpeed = wheelRPM; // 写入驱动电机目标转速(RPM)
     }
 }
 
