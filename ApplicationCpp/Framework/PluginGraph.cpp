@@ -596,7 +596,7 @@ plugin_status plugin_graph::compile()
             return compile_status_;
         }
     }
-    
+
     // index：展开图下标，冻结所有子图。此后子图结构只读。
     for (uint16_t index = 0U; index < node_count_; ++index)
     {
@@ -913,17 +913,21 @@ bool plugin_graph::dependencies_ready(uint16_t slot) const
  */
 process_result plugin_graph::process_frame(frame_context& context, i_profiler* profiler)
 {
+    // 未编译、上了锁、
     if (!is_compiled_ || is_frame_in_progress_ || is_lifecycle_in_progress_)
     { // 未编译或已在帧/生命周期中。
         return process_result::fault;
     }
-    is_frame_in_progress_ = true; // 标记进入帧处理，防止重入。
-    const uint16_t previous_plan_id = active_plan_id_; // 本帧切换前计划。
-    latch_plan(); // 锁存本帧计划(可能递增 plan_switch_count_)。
-    // index：选择器下标；所有请求在第一节点执行前统一锁存。
+    is_frame_in_progress_ = true; // 上锁
+
+    // 更新plan id
+    const uint16_t previous_plan_id = active_plan_id_; // 本帧计划
+    latch_plan(); // 更新下一帧
+
+    // 更新选择器的分支id
     for (uint16_t index = 0U; index < selector_count_; ++index)
     {
-        selectors_[index]->latch(); // 固定本帧分支选择结果。
+        selectors_[index]->latch();
     }
     // index：注册下标；清除上一帧调度状态。
     for (uint16_t index = 0U; index < node_count_; ++index)
@@ -931,6 +935,7 @@ process_result plugin_graph::process_frame(frame_context& context, i_profiler* p
         stats_[index].frame_state = node_frame_state::pending; // 本帧初始为待定。
         stats_[index].frame_order = 0xFFFFU; // 0xFFFF 表示"本帧未执行"。
     }
+    
     update_transitions(context, previous_plan_id); // 下发激活/退出通知。
     process_result aggregate = process_result::ok; // 本帧汇总结果，按严重度逐级升级。
     uint16_t execution_ordinal = 0U; // 本帧实际 process 调用序号(仅统计真正执行者)。

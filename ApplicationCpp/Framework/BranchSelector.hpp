@@ -87,7 +87,7 @@ private:
 
     uint16_t branch_count_; // 可选分支编号总数。
     uint16_t requested_id_; // 请求分支编号：等待下一帧 latch() 生效。
-    uint16_t active_id_; // 生效分支编号：本帧实际使用的分支编号。
+    uint16_t active_id_; // 本帧分支branch
     uint32_t switch_count_{0U}; // 累积切换次数，允许自然回绕（uint32 溢出）。
 };
 

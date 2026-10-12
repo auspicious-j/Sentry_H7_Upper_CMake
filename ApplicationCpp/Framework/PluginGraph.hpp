@@ -220,7 +220,7 @@ private:
     bool is_composed_{false};
     // 是否生成执行计划（默认 false）。
     bool is_compiled_{false};
-    bool is_frame_in_progress_{false}; // 防止回调递归执行本图。
+    bool is_frame_in_progress_{false}; // process_frame函数的锁
     bool is_lifecycle_in_progress_{false}; // 防止启停或退出通知递归。
     node_transition_context last_transition_{}; // 最近帧上下文，供停止通知使用。
     // 是否禁止继续修改图（compile 后置 true，默认 false）。
