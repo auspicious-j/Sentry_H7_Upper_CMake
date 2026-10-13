@@ -59,7 +59,7 @@ void B2B_Transmit()
 
 	usart2TxBuf[62]  = STOPFLAG;    // 急停标志
 	usart2TxBuf[63] = 0xFE;				 // 帧尾
-
+		
 	HAL_UART_Transmit_DMA(&huart2, usart2TxBuf, sizeof(usart2TxBuf));
 }
 
@@ -78,11 +78,11 @@ void B2B_Receive(void)
 		    p[3] = usart2RxBuf[4 + 4*i];
 		    chassis.motors[i].TurnAngle = v;
 		} //解析舵电机当前角度（单圈）单位° 1-16
-
+		
 	    for (uint8_t i = 0; i < 4; i++)
 		{
 		    chassis.motors[i].now_Speed = (int16_t)usart2RxBuf[17 + i * 2] | (int16_t)usart2RxBuf[17 + i * 2 + 1] << 8;
-		} //轮电机当前速度	17-24 //轮电机当前速度    17-24
+		}//轮电机当前速度    17-24
 		{
 		    float v;
 		    uint8_t *p = (uint8_t *)&v;
@@ -91,7 +91,7 @@ void B2B_Receive(void)
 		    p[2] = usart2RxBuf[27];
 		    p[3] = usart2RxBuf[28];
 		    gimbal.base_yawMotor.nowAngle = v;
-		}	//解析大yaw电机当前角度（单圈）单位° 25-28
+		}	//解析大yaw电机当前角度（单圈）单位° 25-28	
 		// {
 		// 	    float v;
 		// 	    uint8_t *p = (uint8_t *)&v;
@@ -100,14 +100,7 @@ void B2B_Receive(void)
 		// 	    p[2] = usart2RxBuf[31];
 		// 	    p[3] = usart2RxBuf[32];
 		// 	    gimbal.base_yawMotor.para.vel = v;
-		// }	//解析大yaw电机当前速度  单位rad/s 29-32
-	    // 		float v;
-	    // 		uint8_t *p = (uint8_t *)&v;
-	    // 		p[0] = usart2RxBuf[29];
-	    // 		p[1] = usart2RxBuf[30];
-	    // 		p[2] = usart2RxBuf[31];
-	    // 		p[3] = usart2RxBuf[32];
-	    // 		gimbal.base_yawMotor.para.vel = v;
+		// }	//解析大yaw电机当前速度  单位rad/s 29-32	
 	    memcpy(&USER_JudgeData, &usart2RxBuf[29], sizeof(JudgeData_t)); //解析裁判系统数据 29-58
 
 	    FEEDBACK = usart2RxBuf[62];

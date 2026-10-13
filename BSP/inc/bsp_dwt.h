@@ -16,6 +16,10 @@
 
 #include "stdint.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct
 {
     uint32_t s;
@@ -33,5 +37,9 @@ void DWT_Delay(float Delay);
 void DWT_SysTimeUpdate(void);
 
 extern DWT_Time_t SysTime;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* BSP_DWT_H_ */

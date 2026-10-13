@@ -16,7 +16,7 @@ ext_game_result_t GameResult;						   // 0x0002
 ext_game_robot_HP_t GameRobotHP;					   // 0x0003
 ext_event_data_t EventData;							   // 0x0101
 ext_referee_warning_t RefereeWarning;				   // 0x0104
-ext_dart_info_t DartRemainingTime;					   // 0x0105
+ext_dart_info_t DartRemainingTime;					   // 0x0105	
 ext_game_robot_status_t GameRobotState;				   // 0x0201
 ext_power_heat_data_t PowerHeatData;				   // 0x0202
 ext_game_robot_pos_t GameRobotPos;					   // 0x0203
@@ -179,71 +179,6 @@ bool JUDGE_Read_Data(uint8_t *ReadFromUsart)
 	}
 
     return retval_tf; // 对数据正误做处理
-// 	LL_USART_SetTransferDirection(USART1, LL_USART_DIRECTION_TX_RX);
-// 	// IT trans
-//	LL_USART_EnableIT_IDLE(USART1);
-// 	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_0, (uint32_t)usart1RxBuf);
-// 	LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_0, sizeof(usart1RxBuf));
-// 	LL_DMA_SetPeriphAddress(DMA2, LL_DMA_STREAM_0, (uint32_t)&USART1->RDR);
-// 	LL_DMA_EnableIT_TC(DMA2, LL_DMA_STREAM_0);
-// 	LL_DMA_EnableStream(DMA2, LL_DMA_STREAM_0);
-//  LL_USART_EnableDMAReq_RX(USART1);
-//
-// 	// send
-// 	LL_DMA_SetPeriphAddress(DMA2, LL_DMA_STREAM_1, (uint32_t)&USART1->TDR);
-// 	LL_USART_EnableDMAReq_TX(USART1);
-// 	LL_DMA_EnableIT_TC(DMA2, LL_DMA_STREAM_1);
-//    if (LL_USART_IsActiveFlag_IDLE(USART1) && LL_USART_IsEnabledIT_IDLE(USART1))
-//    {
-//        LL_DMA_DisableStream(DMA2, LL_DMA_STREAM_0);
-////        int usart1RxLen=JUDGE_MAX_RX_LENGTH - LL_DMA_GetDataLength(DMA2, LL_DMA_STREAM_0);
-//        // 解析串口数据
-//                JUDGE_Read_Data(usart1RxBuf);
-////                judgedata_update();
-//                memset(usart1RxBuf,0,sizeof(usart1RxBuf));
-//                LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_0,JUDGE_MAX_RX_LENGTH);
-//                LL_DMA_EnableStream(DMA2, LL_DMA_STREAM_0);
-//                LL_USART_ClearFlag_IDLE(USART1);
-//    }
-////串口1中断回调
-//void USER_USART1_IRQHandler()
-//{
-//	if (LL_USART_IsActiveFlag_IDLE(USART1) && LL_USART_IsEnabledIT_IDLE(USART1))
-//	{
-//		LL_DMA_DisableStream(DMA2, LL_DMA_STREAM_0);
-//		// 获取接收到的数据长度
-//		uint16_t rxLen = JUDGE_MAX_RX_LENGTH - LL_DMA_GetDataLength(DMA2, LL_DMA_STREAM_0);
-//		JUDGE_Read_Data(usart1RxBuf);
-//		memset(usart1RxBuf,0,sizeof(usart1RxBuf));
-//		LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_0, JUDGE_MAX_RX_LENGTH);
-//		LL_DMA_EnableStream(DMA2, LL_DMA_STREAM_0);
-//		LL_USART_ClearFlag_IDLE(USART1);
-//		Detect_Update(DeviceID_Judge);
-//	}
-//}
-//	while (LL_DMA_IsEnabledStream(DMA2, LL_DMA_STREAM_1) &&
-//		   !LL_DMA_IsActiveFlag_TC1(DMA2))
-//		// 设置超时，避免死等
-//		static uint32_t timeout = 0;
-//		if (++timeout > 10000)
-//		{
-//			LL_DMA_DisableStream(DMA2, LL_DMA_STREAM_1);
-//			LL_DMA_ClearFlag_TC1(DMA2);
-//			timeout = 0;
-//			break;
-//		}
-//	LL_DMA_ClearFlag_TC1(DMA2);
-//	LL_DMA_DisableStream(DMA2, LL_DMA_STREAM_1);
-//	LL_DMA_ConfigTransfer(DMA2, LL_DMA_STREAM_1,
-//						  LL_DMA_DIRECTION_MEMORY_TO_PERIPH |
-//							  LL_DMA_MEMORY_INCREMENT |
-//							  LL_DMA_PERIPH_NOINCREMENT |
-//							  LL_DMA_PDATAALIGN_BYTE |
-//							  LL_DMA_MDATAALIGN_BYTE);
-//	LL_DMA_SetPeriphAddress(DMA2, LL_DMA_STREAM_1, (uint32_t)&USART1->TDR);
-//	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_1, (uint32_t)tx_buffer);
-//	LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_1, size);
-//	LL_DMA_EnableStream(DMA2, LL_DMA_STREAM_1);
 }
 
 extern DMA_HandleTypeDef hdma_usart1_rx;
@@ -251,28 +186,15 @@ extern DMA_HandleTypeDef hdma_usart1_rx;
 // 裁判系统掉线回调函数
 void Judge_UartLostCallback()
 {
-
+	
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart1,usart1RxBuf,sizeof(usart1RxBuf));
 	__HAL_DMA_DISABLE_IT(&hdma_usart1_rx , DMA_IT_HT);
-//	LL_DMA_DisableStream(DMA2, LL_DMA_STREAM_0);
-//	// 清除所有标志位
-//	LL_USART_ClearFlag_IDLE(USART1);
-//	LL_USART_ClearFlag_ORE(USART1);
-//	LL_USART_ClearFlag_FE(USART1);
-//	LL_USART_ClearFlag_NE(USART1);
-//	LL_USART_ClearFlag_PE(USART1);
-//	memset(usart1RxBuf, 0, sizeof(usart1RxBuf));
-//	Judge_Data_TF = FALSE;
-//	LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_0, sizeof(usart1RxBuf));
-//	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_0, (uint32_t)usart1RxBuf);
-//	LL_DMA_EnableStream(DMA2, LL_DMA_STREAM_0);
 }
 // 裁判系统初始化
 
 
 void JUDGE_Init()
 {
-	//	USART1_dma_init();
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart1,usart1RxBuf,sizeof(usart1RxBuf));
 	__HAL_DMA_DISABLE_IT(&hdma_usart1_rx , DMA_IT_HT);
 }
@@ -455,7 +377,7 @@ void Judge_update()
 	{
 	    USER_JudgeData.sentry_info_3 &=~(1 << 0);
 	}
-
+	
 	// bit1 是否检测到堡垒
     if (RfidStatus.rfid_status & (1 << 17))
 		USER_JudgeData.sentry_info_3 |= (1 << 1);
@@ -525,11 +447,6 @@ void Task_Judge_Callback()
 //    JudgeTxFrame *frame = (JudgeTxFrame *)Queue_Dequeue(&judgeQueue);
 ////    USART1_DMA_Send((uint8_t *)frame->data, frame->frameLength);
 //    HAL_UART_Transmit_DMA(&huart1,(uint8_t*)frame->data,frame->frameLength);
-//	if (Queue_IsEmpty(&judgeQueue))
-//		return;
-//	JudgeTxFrame *frame = (JudgeTxFrame *)Queue_Dequeue(&judgeQueue);
-////	USART1_DMA_Send((uint8_t *)frame->data, frame->frameLength);
-//	HAL_UART_Transmit_DMA(&huart1,(uint8_t*)frame->data,frame->frameLength);
 }
 
 
@@ -542,7 +459,6 @@ void OS_JudgeCallback(void const *argument)
 	{
 	    Judge_update();
 //	    Task_Judge_Callback();
-	    //		Task_Judge_Callback();
 	    osDelay(100);
 	}
 }

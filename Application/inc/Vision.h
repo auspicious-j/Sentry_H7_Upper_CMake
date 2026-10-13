@@ -2,8 +2,8 @@
 #define _VISION_H_
 
 #include "main.h"
-#include "stdint.h"
 #include "stdbool.h"
+#include "Shooter.h"
 
 #include <math.h>
 #include <stdint.h>
@@ -36,7 +36,7 @@ typedef struct __attribute__((packed))
     uint8_t sentry_info_3;  // bit 0: 装甲板是否被攻击 0:否 1:是
                             // bit 1: RFID 是否检测到堡垒 0:否 1:是
                             // bit 2: RFID 是否检测到补给区(与兑换站不重叠) 0:否 1:是
-                            // bit 3: RFID 是否检测到补给区(与兑换站重叠) 0:否 1:是
+                            // bit 3: RFID 是否检测到补给区(与兑换站重叠) 0:否 1:是                            
                             // bit 4: 当前剩余能量值是否小于30% 0:否 1:是
                             // bit 5：RFID 是否检测到对方前哨站增益点
                             // bit 6：RFID 是否检测到对方堡垒增益点
@@ -50,25 +50,26 @@ typedef struct __attribute__((packed))
 {
     uint8_t header;
     uint8_t detect_color;  // 0-red 1-blue
-    uint8_t mode; //0为打车 1为打前哨 2为打符 //0为打装甲板 1为打符
-
+    uint8_t mode;  //0为打装甲板 1为打符
+    
     float roll;
-    float pitch; // INS.pitch
+    float pitch;
     float top_yaw;
     float diff_yaw;//大小yaw之间相差角度
-      float diff_pitch; // pitch电机位置角 rad //大小yaw之间pitch差值
+      float diff_pitch;//大小yaw之间pitch差值
     float bullet_speed;
     uint8_t robo_status; //敌方机器人死没死
-
+    
 
     Judge_Data_e AI_Judge_data;
     uint8_t see_enemy; //0表示没瞄到 1表示瞄到装甲板 2表示瞄到符
-
-     uint8_t end_frame;
+    
+     uint8_t end_frame;   
     //uint16_t checksum;
 }VisionTransmit;
 
 enum { VISION_RECEIVE_NONE, VISION_RECEIVE_ARMOR, VISION_RECEIVE_RUNE };
+enum { VISION_AI_ARMOR, VISION_AI_OUTPOST, VISION_AI_RUNE };
 
 typedef struct __attribute__((packed))
 {
@@ -79,48 +80,47 @@ typedef struct __attribute__((packed))
 
     union {
         struct __attribute__((packed)) {
-            float base_yaw; //自瞄目标角度 单位°
+            float base_yaw;
             float yaw;
             float pitch;
-            float incident_yaw; //单位弧度 （目标角度和目前角度差值，用于火控）
-            float distance; //两车中心距离
+            float incident_yaw;
+            float distance;
             float hit_radius;
-        } armor;
+        } armor;// 打装甲板
 
         struct __attribute__((packed)) {
             float base_yaw;
             float hit_radius;
-            float wait_time;
             float yaw[2];
             float pitch[2];
             float incident_yaw[2];
             float distance[2];
             float hit_time[2];
-            int8_t index[2];
-        } rune;
+            int8_t id[2];
+        } rune;// 打符
     };
 
     uint8_t force_shoot;//检测到 强制开一发火 0是不开 1为开火
-
+    
 /***********以下为ai传输内容***********/
     float linear_x;
-    float linear_y;
+    float linear_y;     
     float angular_z; //旋转速度
-
+    
     float align_yaw; //和起伏路段对齐角度
-    float rune_yaw; //符的角度
-    float outpost_yaw; //前哨站的角度
+    float look_yaw; //符或前哨站的角度
+    float look_pitch;
 
     uint8_t spin_mode;  //0为小陀螺关  1为小陀螺开
     uint8_t sentry_mode; //1为进攻 2为防守 3为移动 默认为3
     uint8_t armor_mode;  //0为打车 1打前哨 2为打符
-    uint8_t align_mode; //是否对齐 0为不对齐 1为对齐起伏路段 //是否对齐 0为不对齐 1为对齐装甲板
+    uint8_t align_mode;  //是否对齐 0为不对齐 1为对齐装甲板
     uint8_t energy_activation; //0为不激活 1为激活小符 2为激活大符 激活小还是大和比赛开始时间有关
     uint8_t buy_life;     //0为不买活 1为买活
-    uint8_t remote_buy_blood;    //0到1为远程买一次血 1到2为买一次 依此类推
+    uint8_t remote_buy_blood;    //0到1为远程买一次血 1到2为买一次 依此类推 
     uint8_t remote_buy_bullet;  //0到1为远程买一次弹 1到2为买一次 依此类推
     uint16_t buy_projectile; //哨兵要买多少发弹 开局为0 修改后烧饼在补血点就能兑换 只能单增 如0->100买100发 100->101买1发 依此类推
-    uint8_t end_frame;
+    uint8_t end_frame;   
 }VisionReceive;
 
 typedef struct {
@@ -128,6 +128,8 @@ typedef struct {
     float base_yaw;
     float yaw;
     float pitch;
+    int8_t idToTrigger;
+    uint8_t shooterCommand;
 } VisionTarget;
 
 extern VisionReceive vision_receive;
@@ -135,9 +137,5 @@ extern VisionTransmit vision_transmit;
 extern VisionTarget vision_target;
 
 void Vision_DataReceive(uint8_t *read_from_usart, uint32_t length);
-void Vision_DataTransmit(void);
-void Vision_DataUpdate(void);
-void Vision_Init(void);
-void Vision_ParseData(void);
 
 #endif

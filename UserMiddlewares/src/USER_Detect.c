@@ -41,7 +41,6 @@ void Detect_DefaultLostHandler(uint8_t deviceID)
 	    if (rs485_cnt > 10)
 		{
 //		    osThreadResume(ErrorTaskHandle);
-		//			osThreadResume(ErrorTaskHandle);
 		}
 	    B2B_Init();
 	}

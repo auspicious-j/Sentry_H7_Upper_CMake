@@ -7,7 +7,7 @@
 enum
 {
 	//不响
-	T_None=0,
+    T_None=0,
 	//低八度
   T_L1=3822,
   T_L2=3405,
@@ -37,18 +37,18 @@ enum
 //各个时值对应的时长(ms) (4/4拍 速度=100)
 enum
 {
-	D_Whole=2400,//全音符
-	D_Half=1200,//二分音符
-	D_Quarter=600,//四分音符
-	D_Eighth=300,//八分音符
-	D_Sixteenth=150//十六分音符
+    D_Whole=2400,//全音符
+    D_Half=1200,//二分音符
+    D_Quarter=600,//四分音符
+    D_Eighth=300,//八分音符
+    D_Sixteenth=150//十六分音符
 };
 
 //一个音符
 typedef struct
 {
-	uint16_t period;//发声周期
-	uint16_t duration;//持续时长
+    uint16_t period;//发声周期
+    uint16_t duration;//持续时长
 }Note;
 
 //蜂鸣器初始化

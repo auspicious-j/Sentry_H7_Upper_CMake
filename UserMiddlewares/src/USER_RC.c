@@ -37,7 +37,7 @@ float DeadZone(float x, float zone)
     if (x > -zone && x < zone)
         return 0.0f;
     return x;
-}
+}	
 void MC6C_ParseSBUS(uint8_t *buf, MC6C_RC_t *rc)
 {
     /* 帧头帧尾校验 */
@@ -66,11 +66,11 @@ void MC6C_ParseSBUS(uint8_t *buf, MC6C_RC_t *rc)
     uint8_t flag = buf[23];
     rc->lost     = (flag & (1 << 2)) ? 1 : 0;
     rc->failsafe = (flag & (1 << 3)) ? 1 : 0;
-
+		
     rc->left_last = rc->left;
     rc->right_last = rc->right;
 
-    rc->ch1 = rc->ch[0] - 1000;
+    rc->ch1 = rc->ch[0] - 1000;		
     rc->ch2 = rc->ch[1] - 1000;
     rc->ch3 = rc->ch[2] - 1000;
     rc->ch4	= rc->ch[3] - 1000;
@@ -92,13 +92,13 @@ void DR16_ParseSBUS(uint8_t* buff,DR16_RC_T *rc)
     rc->ch3 -= 1024;		//左横
     rc->ch4 = (buff[4] >> 1 | buff[5] << 7) & 0x07FF;
     rc->ch4 -= 1024;		//左竖
-
+	
   /* prevent remote control zero deviation */
     rc->ch1 = DeadZone(rc->ch1,50);
     rc->ch2 = DeadZone(rc->ch2,50); //设静止死区
     rc->ch3 = DeadZone(rc->ch3,50);
     rc->ch4 = DeadZone(rc->ch4,50); //设静止死区
-
+	
     rc->left_last = rc->left;
     rc->right_last = rc->right;
 
@@ -148,10 +148,10 @@ void ET08_ParseSBUS(uint8_t *buff, ET08_RC_t *rc)
     rc->ch1 = rc->ch[0] - 1024;//右横
     rc->ch2 = rc->ch[1] - 1024;//右竖
     rc->ch3 = rc->ch[2] - 1024;//左横
-    rc->ch4 = rc->ch[3] - 1024;//左竖
+    rc->ch4 = rc->ch[3] - 1024;//左竖	
   /* prevent remote control zero deviation */
       rc->ch1 = DeadZone(rc->ch1,10);
-    rc->ch2 = DeadZone(rc->ch2,10);
+    rc->ch2 = DeadZone(rc->ch2,10); 
     rc->ch3 = DeadZone(rc->ch3,10);
     rc->ch4 = DeadZone(rc->ch4,10); //设静止死区
 
@@ -170,7 +170,7 @@ void ET08_ParseSBUS(uint8_t *buff, ET08_RC_t *rc)
 //统一接口
 void MC6C_ToUnified(MC6C_RC_t *rc_MC6C, RC_TypeDef *rc)
 {
-    rc->ch1 = rc_MC6C->ch1;
+    rc->ch1 = rc_MC6C->ch1;		
     rc->ch2 = rc_MC6C->ch2;
     rc->ch3 = rc_MC6C->ch3;
     rc->ch4	= rc_MC6C->ch4;
@@ -186,7 +186,7 @@ void MC6C_ToUnified(MC6C_RC_t *rc_MC6C, RC_TypeDef *rc)
 
 void DR16_ToUnified(DR16_RC_T *rc_DR16, RC_TypeDef *rc)
 {
-    rc->ch1 = rc_DR16->ch1;
+    rc->ch1 = rc_DR16->ch1;		
     rc->ch2 = rc_DR16->ch2;
     rc->ch3 = rc_DR16->ch3;
     rc->ch4	= rc_DR16->ch4;
@@ -208,7 +208,7 @@ void DR16_ToUnified(DR16_RC_T *rc_DR16, RC_TypeDef *rc)
 
 void ET08_ToUnified(ET08_RC_t *rc_ET08, RC_TypeDef *rc)
 {
-    rc->ch1 = rc_ET08->ch1;
+    rc->ch1 = rc_ET08->ch1;		
     rc->ch2 = rc_ET08->ch2;
     rc->ch3 = rc_ET08->ch3;
     rc->ch4	= rc_ET08->ch4;

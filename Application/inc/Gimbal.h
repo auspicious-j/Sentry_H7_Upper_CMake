@@ -8,7 +8,7 @@
 
 #define TOP_YAW_OFFSET 2710  //此处校准小yaw
 #define INIT_YAW_ANGLE -85.0f   //此处校准大yaw
-#define PITCH_MOTOR_ZERO_POS 2.094f //此处校准pitch
+#define PITCH_MOTOR_ZERO_POS -1.048f //此处校准pitch
 
 #define PITCH_DIRECTION -1
 #define MASS_G 9.81f
@@ -43,14 +43,13 @@ typedef struct {
     CascadePID imuPID;        // pitch陀螺仪pid
   } pitch;
 
-  DM_motor_t base_yawMotor; // 大yaw电机
-  DJI_Motor_t top_yawMotor; // 小yaw电机
-  DM_motor_t pitchMotor; // 云台pitch电机
+  DM_motor_t base_yawMotor;
+  DJI_Motor_t top_yawMotor;
+  DM_motor_t pitchMotor;
 } Gimbal_t;
 
 extern Gimbal_t gimbal;
 
 void Gimbal_Init(void);
-bool Gimbal_VisionForced(void);
 
 #endif

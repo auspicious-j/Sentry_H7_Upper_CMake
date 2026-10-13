@@ -27,7 +27,7 @@ void Beep_Play(uint16_t period)
 	{
     __HAL_TIM_SetAutoreload(&htim12,period);
     __HAL_TIM_SetCompare(&htim12,TIM_CHANNEL_2,period/2);
-	    HAL_TIM_PWM_Start(&htim12,TIM_CHANNEL_2);
+ 	    HAL_TIM_PWM_Start(&htim12,TIM_CHANNEL_2);
 	}
 }
 
@@ -65,7 +65,7 @@ void Task_Beep_Callback()
 {
     if(Queue_IsEmpty(&noteQueue))//没有音符要播放则停止任务
 	{
-	    Beep_Play(T_None);
+ 	    Beep_Play(T_None);
         ulTaskNotifyTake(pdTRUE,portMAX_DELAY);  //等待任务通知
 	}
     else
@@ -81,10 +81,10 @@ void Task_Beep_Callback()
 void OS_BeepCallback(void const * argument)
 {
   //蜂鸣器播放启动声 [do re me so la(升)]
-   // Beep_PlayNotes((Note[]){{T_M1,D_Sixteenth},{T_M3,D_Sixteenth},{T_M5,D_Sixteenth},{T_H1,D_Sixteenth},{T_None,D_Quarter}},5);
+    Beep_PlayNotes((Note[]){{T_M1,D_Sixteenth},{T_M3,D_Sixteenth},{T_M5,D_Sixteenth},{T_H1,D_Sixteenth},{T_None,D_Quarter}},5);
     for(;;)
 	{
-       // Task_Beep_Callback();
+        Task_Beep_Callback();
         osDelay(20);
 	}
 }

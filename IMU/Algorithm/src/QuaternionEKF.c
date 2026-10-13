@@ -14,8 +14,8 @@
  ******************************************************************************
  */
 #include "QuaternionEKF.h"
-#include "arm_math.h"
 
+#include <math.h>
 #include <stdbool.h>
 
 QEKF_INS_t QEKF_INS={0};
@@ -57,14 +57,6 @@ static void IMU_QuaternionEKF_xhatUpdate(KalmanFilter_t *kf);
  * @param[in] lambda		    fading coefficient          0.9996
  * @param[in] dt				    update period in s
  */
-/**
- * @brief Quaternion EKF initialization and some reference value
- * @param[in] process_noise1 quaternion process noise    10
- * @param[in] process_noise2 gyro bias process noise     0.001
- * @param[in] measure_noise  accel measure noise         1000000
- * @param[in] lambda			fading coefficient          0.9996
- * @param[in] dt					update period in s
- */
 void IMU_QuaternionEKF_Init(float process_noise1, float process_noise2, float measure_noise, float lambda, float dt, float lpf)
 {
     QEKF_INS.Initialized = 1;
@@ -76,13 +68,13 @@ void IMU_QuaternionEKF_Init(float process_noise1, float process_noise2, float me
     QEKF_INS.ErrorCount = 0;
     QEKF_INS.UpdateCount = 0;
 	    QEKF_INS.dt = dt;
-
+    
     if (lambda > 1)
     {
         lambda = 1;
     }
     QEKF_INS.lambda = lambda;
-
+		
     // 初始化矩阵维度信息
     Kalman_Filter_Init(&QEKF_INS.IMU_QuaternionEKF, 6, 0, 3);
     Matrix_Init(&QEKF_INS.ChiSquare, 1, 1, (float *)QEKF_INS.ChiSquare_Data);
@@ -111,9 +103,9 @@ void IMU_QuaternionEKF_Reset(void)
 {
     // 初始化矩阵维度信息
     Kalman_Filter_Reset(&QEKF_INS.IMU_QuaternionEKF, 6, 0, 3);
-
+	
 	    memcpy(IMU_QuaternionEKF_P, IMU_QuaternionEKF_P_Const, sizeof(IMU_QuaternionEKF_P));
-
+    
 	// 姿态初始化
     QEKF_INS.IMU_QuaternionEKF.xhat_data[0] = 1;
     QEKF_INS.IMU_QuaternionEKF.xhat_data[1] = 0;
@@ -133,13 +125,6 @@ void IMU_QuaternionEKF_Reset(void)
 * @param[in]     gyro x y z in rad/s
  * @param[in]     accel x y z in m/s²
  * @param[in]     update period in s
- */
-/**
- * @brief Quaternion EKF update
- * @param[in] 	quaternion need to be updated
-* @param[in] 	gyro x y z in rad/s
- * @param[in] 	accel x y z in m/s²
- * @param[in] 	update period in s
  */
 void IMU_QuaternionEKF_Update(float gx, float gy, float gz, float ax, float ay, float az)
 {
@@ -198,7 +183,7 @@ void IMU_QuaternionEKF_Update(float gx, float gy, float gz, float ax, float ay, 
     QEKF_INS.Accel[2] = QEKF_INS.Accel[2] * QEKF_INS.accLPFcoef / (QEKF_INS.dt + QEKF_INS.accLPFcoef) + az * QEKF_INS.dt / (QEKF_INS.dt + QEKF_INS.accLPFcoef);
 
     // set z,单位化重力加速度向量
-
+    
     QEKF_INS.accl_norm = sqrtf(QEKF_INS.Accel[0] * QEKF_INS.Accel[0] + QEKF_INS.Accel[1] * QEKF_INS.Accel[1] + QEKF_INS.Accel[2] * QEKF_INS.Accel[2]);
     accelInvNorm = 1.0f / QEKF_INS.accl_norm;
 
@@ -243,12 +228,12 @@ void IMU_QuaternionEKF_Update(float gx, float gy, float gz, float ax, float ay, 
     QEKF_INS.q[1] = QEKF_INS.IMU_QuaternionEKF.FilteredValue[1];
     QEKF_INS.q[2] = QEKF_INS.IMU_QuaternionEKF.FilteredValue[2];
     QEKF_INS.q[3] = QEKF_INS.IMU_QuaternionEKF.FilteredValue[3];
-
+		
 	    arm_atan2_f32(QEKF_INS.q[0]*QEKF_INS.q[1] + QEKF_INS.q[2]*QEKF_INS.q[3], 0.5f - QEKF_INS.q[1]*QEKF_INS.q[1] - QEKF_INS.q[2]*QEKF_INS.q[2],&QEKF_INS.Roll);
-	    QEKF_INS.Roll  *=57.29578f;
+	    QEKF_INS.Roll  *=57.29578f; 
 	    QEKF_INS.Pitch =57.29578f * asinf(-2.0f * (QEKF_INS.q[1]*QEKF_INS.q[3] - QEKF_INS.q[0]*QEKF_INS.q[2]));
-	    arm_atan2_f32(QEKF_INS.q[1]*QEKF_INS.q[2] + QEKF_INS.q[0]*QEKF_INS.q[3], 0.5f - QEKF_INS.q[2]*QEKF_INS.q[2] - QEKF_INS.q[3]*QEKF_INS.q[3],&QEKF_INS.Yaw);
-    QEKF_INS.Yaw   *=57.29578f;
+	    arm_atan2_f32(QEKF_INS.q[1]*QEKF_INS.q[2] + QEKF_INS.q[0]*QEKF_INS.q[3], 0.5f - QEKF_INS.q[2]*QEKF_INS.q[2] - QEKF_INS.q[3]*QEKF_INS.q[3],&QEKF_INS.Yaw); 
+    QEKF_INS.Yaw   *=57.29578f; 
 	    QEKF_INS.GyroBias[0] = QEKF_INS.IMU_QuaternionEKF.FilteredValue[4];
     QEKF_INS.GyroBias[1] = QEKF_INS.IMU_QuaternionEKF.FilteredValue[5];
     QEKF_INS.GyroBias[2] = 0; // 大部分时候z轴通天,无法观测yaw的漂移
@@ -399,7 +384,7 @@ static void IMU_QuaternionEKF_xhatUpdate(KalmanFilter_t *kf)
     // 计算预测值和各个轴的方向余弦
     for (uint8_t i = 0; i < 3; i++)
     {
-        QEKF_INS.OrientationCosine[i] = arm_cos_f32(fabsf(kf->temp_vector_data[i]));
+        QEKF_INS.OrientationCosine[i] = cos(fabsf(kf->temp_vector_data[i]));
     }
 
     // 利用加速度计数据修正

@@ -7,23 +7,18 @@
 
 /*************���ݽṹ**************/
 //���нṹ��
-/*************数据结构**************/
-//队列结构体
 typedef struct _Queue
 {
 	//��������
-    //队列数据
-    void **data; //只保存指针，若要同时保存指向的数据请附加保存区 //ֻ����ָ�룬��Ҫͬʱ����ָ��������븽�ӱ�����
+    void **data;//ֻ����ָ�룬��Ҫͬʱ����ָ��������븽�ӱ�����
     uint16_t maxSize;
     uint16_t front,rear;
 	//���ݱ�����(��ѡ��)
-    //数据保存区(可选用)
     void *buffer;
-    uint8_t bufElemSize; //每个元素的大小 //ÿ��Ԫ�صĴ�С
+    uint8_t bufElemSize;//ÿ��Ԫ�صĴ�С
 }Queue;
 
 /**************�ӿں���***************/
-/**************接口函数***************/
 void Queue_Init(Queue *queue,uint16_t maxSize);
 void Queue_AttachBuffer(Queue *queue,void *buffer,uint8_t elemSize);
 void Queue_Destroy(Queue *queue);

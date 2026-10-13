@@ -15,7 +15,7 @@ enum
   DeviceID_Turn_Motor1,
   DeviceID_Turn_Motor2,
   DeviceID_Turn_Motor3,
-  DeviceID_Turn_Motor4,
+  DeviceID_Turn_Motor4,  
 	// 云台电机
     DeviceID_YawMotor,
 	// 拨弹电机
@@ -24,7 +24,7 @@ enum
     DeviceID_B2B,
 	// 裁判系统接收
     DeviceID_Judge,
-
+	
     DETECT_DEVICE_NUM // 放在最后，代表设备数量(设备离线信息列表长度)
 };
 
