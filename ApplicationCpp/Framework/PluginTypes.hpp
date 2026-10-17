@@ -37,7 +37,7 @@ namespace robot::framework {
 // 调用方 switch 一下即可分辨。底层类型 uint8_t（1 字节），省内存。
 enum class plugin_status : uint8_t {
     ok = 0,              // 操作成功，一切正常。
-    invalid_state,        // 当前状态不允许该操作（例：节点已初始化后再初始化一次）。
+    invalid_state,        // 当前状态不允许该操作（重复初始化）。
     duplicate_node,       // 重复注册：同一节点对象，或相同节点 ID 已被注册过。
     duplicate_edge,       // 重复添加：这条依赖边（含 is_delayed 跨帧标志都相同）已存在。
     capacity_exceeded,    // 超出容量上限：节点数或依赖边数已达编译期配置的最大值。
@@ -81,15 +81,19 @@ enum class plugin_health : uint8_t {
 using plugin_id = uint16_t;                     // 节点 ID 类型：16 位无符号整数。
 constexpr plugin_id k_invalid_plugin_id = 0xFFFFU; // 无效 ID 的哨兵值（16 位全 1），表示“未分配/不存在”。
 
+// 无效帧号哨兵值（32 位全 1，与 k_invalid_plugin_id 同为“全 1 哨兵”风格）：
+// 表示“尚未执行过任何一帧 / 尚未写入过任何数据”。真实帧号从 0 开始，0 是合法帧号。
+constexpr uint32_t k_invalid_frame_id = 0xFFFFFFFFU;
+
 // frame_context：一帧内所有节点共享的时间上下文（这一拍的“计时卡”）。
-struct frame_context {
-    uint32_t frame_id{0U};          // 帧序号：从 0 起递增，每执行一帧加 1，用于区分不同帧。
+struct frame_context 
+{
+    uint32_t frame_id{k_invalid_frame_id}; // 帧序号：首个真实帧为 0，之后逐帧 +1；默认哨兵表示尚未开始任何帧。
     uint32_t period_us{1000U};      // 本帧周期，单位微秒(us)，默认 1000us = 1ms。
     uint64_t timestamp_us{0U};      // 本帧时间戳，单位微秒(us)，通常来自 DWT 等高精度计时器。
 };
 
-// plugin_health_snapshot：保存节点最近一次处理结果的快照，供调试窗口和故障管理读取。
-// 说明：这是“只读副本”，外部读取它不会影响节点内部正在运行的业务数据。
+// 保存节点最近一次处理结果的快照
 struct plugin_health_snapshot {
     plugin_state state{plugin_state::created};             // 当前生命周期状态，默认 created。
     plugin_health health{plugin_health::unknown};          // 当前健康度，默认 unknown（尚未运行）。

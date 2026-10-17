@@ -17,10 +17,13 @@
 //   - 计划（plan）：一套预先编排好的控制方案/编排编号，切换计划即切换机器人行为。
 //   - 锁存（latch）：在帧开始时把某个值固定下来，本帧内不再变化，保证一帧内一致。
 //
-// 所有成员都带默认值（花括号内的初始值），默认值含义为“零值 / 未指定”。
+// 所有成员都带默认值（花括号内的初始值），默认值含义为“零值 / 未指定”；
+// 其中 frame_id 默认 k_invalid_frame_id，表示“尚无帧”（0 是合法帧号）。
 // ============================================================================
 
 #include <cstdint>
+
+#include "PluginTypes.hpp" // 帧号哨兵 k_invalid_frame_id 定义于此
 
 namespace robot::framework {
 
@@ -28,7 +31,7 @@ namespace robot::framework {
 // 各字段含义见下方成员注释。
 struct node_transition_context {
     // 当前帧号；若由整图 stop_all 触发退出，则填入“最近一帧”的帧号。
-    uint32_t frame_id{0U}; // 当前帧号；stop_all 使用最近一帧。
+    uint32_t frame_id{k_invalid_frame_id}; // 默认哨兵表示“尚无帧”（0 是合法帧号）；stop_all 使用最近一帧。
     // 本帧开始的时间戳，单位微秒（us）；默认 0 表示“未提供”。
     uint64_t timestamp_us{0U}; // 帧开始时间，微秒。
     // 切换之前所使用的计划编号；默认 0 表示“无 / 初始值”。

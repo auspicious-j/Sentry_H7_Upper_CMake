@@ -16,21 +16,21 @@
 // 应用层命名空间：组合根及其内部节点实现均处于此作用域。
 namespace robot::application {
 
-// heartbeat_node —— 心跳节点（骨架阶段的占位节点）。
-// 用途：不产生任何硬件输出，仅用于验证调度链路、计时与调试快照是否正常。
-// 它是图中的一个“常驻活动节点”，保证每帧都有节点被执行，便于判断图是否在运行。
-class robot_application::heartbeat_node final : public robot::framework::plugin_node {
-public:
-    heartbeat_node() : plugin_node(1U) {} // 节点 ID 固定为 1。
+// // heartbeat_node —— 心跳节点（骨架阶段的占位节点）。
+// // 用途：不产生任何硬件输出，仅用于验证调度链路、计时与调试快照是否正常。
+// // 它是图中的一个“常驻活动节点”，保证每帧都有节点被执行，便于判断图是否在运行。
+// class robot_application::heartbeat_node final : public robot::framework::plugin_node {
+// public:
+//     heartbeat_node() : plugin_node(1U) {} // 节点 ID 固定为 1。
 
-    // 每帧回调。
-    // 参数：当前帧上下文（此处不使用；基础节拍为 1 kHz）。
-    // 返回值：恒为 ok，表示本节点无故障。
-    robot::framework::process_result process(robot::framework::frame_context&) override
-    {
-        return robot::framework::process_result::ok;
-    }
-};
+//     // 每帧回调。
+//     // 参数：当前帧上下文（此处不使用；基础节拍为 1 kHz）。
+//     // 返回值：恒为 ok，表示本节点无故障。
+//     robot::framework::process_result process(robot::framework::frame_context&) override
+//     {
+//         return robot::framework::process_result::ok;
+//     }
+// };
 
 // 构造函数：只做“成员初始化 + 心跳节点绑定”，不做图组装。
 // 设计原则：所有节点对象都是成员/静态对象，运行期绝不 new/delete，
@@ -41,8 +41,8 @@ robot_application::robot_application()
 {
     // 心跳节点使用函数内静态存储期：常驻且只构造一次。
     // 用指针保存是因为它与本对象生命周期无关，避免在头文件中暴露其定义。
-    static heartbeat_node heartbeat_node;
-    heartbeat_ = &heartbeat_node; // 登记指针，供 initialize() 注册到图中。
+    // static heartbeat_node heartbeat_node;
+    // heartbeat_ = &heartbeat_node; // 登记指针，供 initialize() 注册到图中。
 }
 
 // initialize() —— 组装并启动插件图。
@@ -108,7 +108,7 @@ robot::framework::process_result robot_application::process_frame()
 
     // 性能测试开始
     frame_.timestamp_us = clock_.now_us();
-    profiler_.begin_frame(frame_.frame_id, frame_.timestamp_us);
+    profiler_.begin_frame(frame_.timestamp_us);
 
     // 根图启动
     const robot::framework::process_result result = graph_.process_frame(frame_, &profiler_); // result：本帧图的汇总处理结果。

@@ -3,6 +3,8 @@
 
 #include <cstdint>
 
+#include "PluginTypes.hpp" // 帧号哨兵 k_invalid_frame_id 定义于此
+
 // =============================================================================
 // 文件：Ports.hpp
 // 作用：插件框架（plugin_graph）里"节点之间传递数据"的最小模型（端口/信号）。
@@ -65,7 +67,7 @@ public:
         return is_valid_;
     }
 
-    // 返回最近一次 publish 时写入的帧号；从未发布过时为初值 0。
+    // 返回最近一次 publish 时写入的帧号；从未发布过时为哨兵 k_invalid_frame_id。
     uint32_t frame_id() const
     {
         return frame_id_;
@@ -73,7 +75,7 @@ public:
 
 private:
     t value_{}; // 信号值本体；用 {} 默认初始化，保证未发布时也有确定初值。
-    uint32_t frame_id_{0U}; // 最近一次写入对应的帧号；0 表示尚未写入。
+    uint32_t frame_id_{k_invalid_frame_id}; // 最近一次写入对应的帧号；哨兵表示尚未写入。
     bool is_valid_{false}; // 是否已有有效值；false 表示从未写入或已被 invalidate。
 };
 
@@ -148,10 +150,10 @@ public:
         return is_valid() && signal_->frame_id() == frame_id;
     }
 
-    // 返回输入数据对应的帧号；未绑定时返回 0。
+    // 返回输入数据对应的帧号；未绑定时返回哨兵 k_invalid_frame_id。
     uint32_t frame_id() const
     {
-        return signal_ == nullptr ? 0U : signal_->frame_id();
+        return signal_ == nullptr ? k_invalid_frame_id : signal_->frame_id();
     }
 
 private:

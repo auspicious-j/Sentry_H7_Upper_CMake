@@ -56,6 +56,13 @@ file(GLOB_RECURSE USER_CPP_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/*.cpp"
 )
 
+# RobotApplication / app_cpp_entry / ControlExecutorTask 暂不参与编译（文件保留在目录中供参考）。
+list(REMOVE_ITEM USER_CPP_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/RobotApplication.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/app_cpp_entry.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/ControlExecutorTask.cpp"
+)
+
 # Collect user C++ sources (Platform STM32 平台适配层)
 file(GLOB_RECURSE USER_PLATFORM_CPP_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/Platform/*.cpp"
@@ -98,10 +105,12 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Framework
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Platform
-    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Nodes
-
-    # Config（编译期配置头，robot_build_config.h）
-    ${CMAKE_CURRENT_SOURCE_DIR}/Config
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Gimbal
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Gimbal/Input_Node
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Gimbal/Target_Node
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Gimbal/Control_Node
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Gimbal/Output_Node
 
     # Platform（C++ 平台适配层，STM32 具体实现）
     ${CMAKE_CURRENT_SOURCE_DIR}/Platform

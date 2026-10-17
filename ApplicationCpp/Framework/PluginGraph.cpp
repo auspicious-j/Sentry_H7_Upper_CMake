@@ -978,17 +978,22 @@ process_result plugin_graph::process_frame(frame_context& context, i_profiler* p
             }
             continue;
         }
+
+        // 采样开始
         stats.frame_order = execution_ordinal++; // 记录本次执行序号。
         if (profiler != nullptr)
         {
-            profiler->begin_node(node.id());
-        } // 采样开始(仅包住 process)。
-        const process_result result = node.process(context); // 本次业务结果。
+            profiler->begin_node();
+        }
+        // 运行
+        const process_result result = node.process(context);
+        // 采样结束
         if (profiler != nullptr)
         {
-            profiler->end_node();
-        } // 采样结束。
+            profiler->end_node(node.id());
+        }
         ++stats.execution_count;
+
         node.record_process_result(result); // 把结果反馈给节点自身。
         stats.frame_state = node_frame_state::executed; // 默认视为已执行。
         if (result == process_result::fault)

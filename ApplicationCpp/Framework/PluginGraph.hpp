@@ -52,7 +52,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "robot_build_config.h"
+#include "Gimbal_Graph_Config.h"
 #include "PluginTypes.hpp"
 #include "IProfiler.hpp"
 #include "BranchSelector.hpp"

@@ -15,18 +15,27 @@
 #define PITCH_MASS 1.3f
 #define PITCH_R 0.07287f   // pitch中心及其距离
 
-typedef struct {
-  struct {
-    float initAngle;                                // yaw
-    float angle, lastAngle, totalAngle, totalRound; // 用于角度统计
+typedef struct 
+{
+  struct 
+  {
+    float initAngle;
+    float angle;
+    float lastAngle;
+    float totalAngle;// 当前角
+    float totalRound;
     float gyro;
     float targetAngle, lastTargetAngle;
     CascadePID imuPID; // yaw陀螺仪pid
   } base_yaw;
 
-  struct {
-    float initAngle;                                // yaw
-    float angle, lastAngle, totalAngle, totalRound; // 用于角度统计
+  struct 
+  {
+    float initAngle;
+    float angle;
+    float lastAngle;
+    float totalAngle;// 当前角
+    float totalRound;
     float gyro;
     float targetAngle, lastTargetAngle;
     CascadePID imuPID; // yaw陀螺仪pid

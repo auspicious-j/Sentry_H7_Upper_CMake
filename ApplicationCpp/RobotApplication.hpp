@@ -27,7 +27,7 @@
 #include "Framework/PluginNode.hpp"
 
 // —— 编译期裁剪开关（ROBOT_ENABLE_xxx 等宏定义）——
-#include "robot_build_config.h"
+#include "Gimbal_Graph_Config.h"
 
 // —— 平台抽象接口与 STM32 具体实现（时钟、性能统计）——
 #include "Platform/IClock.hpp"
@@ -62,8 +62,8 @@ public:
     bool is_initialized() const { return is_initialized_; }
 
 private:
-    // 前置声明：心跳节点定义在 .cpp 中（唯一不依赖硬件的常驻节点）。
-    class heartbeat_node;
+    // // 前置声明：心跳节点定义在 .cpp 中（唯一不依赖硬件的常驻节点）。
+    // class heartbeat_node;
 
 
     // —— 图与节点成员 ——
@@ -71,8 +71,8 @@ private:
     // 运行期零 new，初始化顺序严格由成员声明顺序（即构造顺序）决定。
     // 根插件图：所有节点注册到这里，由它负责编译与逐帧调度。
     robot::framework::plugin_graph graph_{};
-    // 心跳节点指针；实际对象是 .cpp 中的函数内静态变量，不参与运行期分配。
-    heartbeat_node* heartbeat_{nullptr};
+    // // 心跳节点指针；实际对象是 .cpp 中的函数内静态变量，不参与运行期分配。
+    // heartbeat_node* heartbeat_{nullptr};
     // STM32 单调时钟：为帧时间戳、快照年龄和性能统计提供统一时基。
     robot::platform::stm32::stm32_clock clock_{};
     // STM32 性能统计器：记录每帧耗时（构造时注入 clock_）。

@@ -31,20 +31,15 @@ class i_profiler {
 public:
     // 虚析构保证接口指针销毁派生对象安全（通过基类指针 delete 派生对象时能正确析构）。
     virtual ~i_profiler() = default;
-    // 记录一帧开始。
-    // 参数 frame_id      ：帧号，与业务帧号一致，用于把统计结果对应到具体某一帧。
-    // 参数 timestamp_us  ：本帧开始的时间戳，单位微秒（us）。
-    virtual void begin_frame(uint32_t frame_id, uint64_t timestamp_us) = 0;
-    // 记录某个节点开始执行。
-    // 参数 id：节点 ID，用于区分是哪个节点的耗时。
-    // 注意：实现应在此时“实时读取时钟”，而不是复用 begin_frame 传入的时间，
-    //       否则会把整帧的起始时间误当作该节点的起始时间，导致统计错误。
-    virtual void begin_node(plugin_id id) = 0;
-    // 记录当前节点结束（与最近一次 begin_node 配对，内部实时读时钟以算出该节点耗时）。
-    virtual void end_node() = 0;
-    // 记录一帧结束。
-    // 参数 timestamp_us：本帧结束的时间戳，单位微秒（us）；与 begin_frame 配合可得到整帧耗时。
-    virtual void end_frame(uint64_t timestamp_us) = 0;
+    // 记录一帧开始。实现内部实时读取时钟作为帧起点。
+    virtual void begin_frame() = 0;
+    // 记录某个节点开始执行（实时读取时钟作为节点起点，不复用帧起点）。
+    virtual void begin_node() = 0;
+    // 记录当前节点结束（必须与最近一次 begin_node 成对调用；实时读时钟求差）。
+    // 参数 id：节点 ID；耗时按此归入逐节点统计。
+    virtual void end_node(plugin_id id) = 0;
+    // 记录一帧结束。实现内部实时读时钟，与 begin_frame 的起点求差得到整帧耗时。
+    virtual void end_frame() = 0;
 };
 
 } // namespace robot::framework

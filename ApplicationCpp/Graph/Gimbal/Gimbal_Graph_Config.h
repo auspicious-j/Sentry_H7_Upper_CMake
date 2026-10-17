@@ -4,7 +4,7 @@
 /* Shared by the STM32 target and future NUC/Linux targets. */
 
 // 静态图容量，运行期不扩容。
-#define ROBOT_MAX_PLUGIN_NODES 32U
+inline constexpr std::size_t ROBOT_MAX_PLUGIN_NODES = 32U;
 #define ROBOT_MAX_PLUGIN_EDGES 64U
 // 根图最多预存的执行计划数。
 #define ROBOT_MAX_EXECUTION_PLANS 4U

@@ -17,7 +17,7 @@
 
 Gimbal_t gimbal;
 
-/********************初始化************************/
+// region Initialize
 static void Gimbal_InitPID(void)
 {
     /*pitch由陀螺仪控制*/
@@ -51,7 +51,9 @@ void Gimbal_Init(void)
 
     Gimbal_InitPID();         // 初始化PID参数
 }
+// endregion
 
+// 数据更新和加弹动作组
 static void Gimbal_UpdataAngle(void)
 {
     gimbal.top_yaw.gyro = INS.gyro[2];
@@ -66,23 +68,26 @@ static void Gimbal_UpdataAngle(void)
     
     gimbal.top_yaw.lastAngle = gimbal.top_yaw.angle;
     gimbal.base_yaw.totalAngle = gimbal.top_yaw.totalAngle - (gimbal.top_yawMotor.angle - TOP_YAW_OFFSET) / 8192.0 * 360.0;
-    
+
     if (chassis.pattern == Chassis_AI && rcInfo.left == 2) // 加弹
     {
         gimbal.base_yaw.targetAngle += 45;
     }
 }
 
+// 读遥控器开启视觉控制
 static bool Gimbal_VisionForced(void)
 {
     return rcInfo.wheel < -400;
 }
 
+// 读遥控器开启攻击
 static bool Gimbal_AttackAllowed(void)
 {
     return rcInfo.left == 1;
 }
 
+// 扫描控制
 static void Gimbal_Scan(void)
 {
     static const float yaw_v = 60.0f;     // 扫描速度（度/秒）
@@ -123,24 +128,15 @@ static void Gimbal_Scan(void)
     }
 }
 
-static void Fric_RockerControl(void)
-{
-    static int lastwheel = 0;
-    
-    if (rcInfo.wheel > 400 && lastwheel <= 400)
-    {
-        shooter.fricOpen = !shooter.fricOpen;
-    }
-	
-	lastwheel = rcInfo.wheel;
-}
-
+// 视觉控制
 static bool Gimbal_Shooter_VisionControl(void)
 {
     if (vision_target.vaild)
     {
+        // base_yaw
         gimbal.base_yaw.targetAngle = ModularDegreeTowards(vision_target.base_yaw, gimbal.base_yaw.targetAngle);// 大yaw直接瞄就行
 
+        // top_yaw//!有点问题吧，我怎么感觉应该无论如何小yaw先摆头到位，之后大yaw跟随路上小yaw反动就好了
         float top_target_unwrap = gimbal.base_yaw.targetAngle + (vision_target.yaw - vision_target.base_yaw);
 
         float delta = top_target_unwrap - gimbal.base_yaw.totalAngle;//计算相对误差
@@ -148,6 +144,7 @@ static bool Gimbal_Shooter_VisionControl(void)
 
         gimbal.top_yaw.targetAngle = gimbal.base_yaw.totalAngle + delta;//小yaw跟随base
 
+        // pitch
         gimbal.pitch.targetAngle = vision_target.pitch;
         LIMIT(gimbal.pitch.targetAngle, gimbal.pitch.pitchMin, gimbal.pitch.pitchMax);
 
@@ -162,6 +159,7 @@ static bool Gimbal_Shooter_VisionControl(void)
     }
 }
 
+// region 遥控器控制
 static void Shooter_RockerControl(void)
 {
     if (Gimbal_AttackAllowed())
@@ -182,8 +180,23 @@ static void Gimbal_RockerControl(void)
     LIMIT(gimbal.pitch.targetAngle, gimbal.pitch.pitchMin, gimbal.pitch.pitchMax);
 }
 
+
+static void Fric_RockerControl(void)
+{
+    static int lastwheel = 0;
+    
+    if (rcInfo.wheel > 400 && lastwheel <= 400)
+    {
+        shooter.fricOpen = !shooter.fricOpen;
+    }
+	
+	lastwheel = rcInfo.wheel;
+}
+// endregion
+
 static void Task_Gimbal_Callback(void)
 {
+// region Target_Node
     if (chassis.pattern == Chassis_AI && Gimbal_AttackAllowed())
     {
         if (Gimbal_Shooter_VisionControl())
@@ -214,6 +227,10 @@ static void Task_Gimbal_Callback(void)
         Fric_RockerControl();
     }
 
+    Gimbal_UpdataAngle();
+// endregion
+
+// region Control_Node
     if (chassis.rotate.mode == ChassisMode_Spin)
     {
         gimbal.base_yaw.imuPID.outer.maxIntegral = 6000;
@@ -224,8 +241,6 @@ static void Task_Gimbal_Callback(void)
         gimbal.base_yaw.imuPID.outer.maxIntegral = 1000;
         gimbal.base_yaw.imuPID.outer.ki = 0.1;
     }
-    
-    Gimbal_UpdataAngle();
     
     //计算小yaw电机输出
     DEPID_CascadeCalc(&gimbal.top_yaw.imuPID,gimbal.top_yaw.targetAngle,gimbal.top_yaw.totalAngle,gimbal.top_yaw.gyro);
@@ -238,6 +253,7 @@ static void Task_Gimbal_Callback(void)
 //        DEPID_CascadeCalc(&gimbal.pitch.imuPID, gimbal.pitch.targetAngle, gimbal.pitch.angle, gimbal.pitch.gyro);
     PID_SingleCalc(&gimbal.pitch.imuPID.outer,gimbal.pitch.targetAngle,gimbal.pitch.angle);
     gimbal.pitch.imuPID.output = - gimbal.pitch.imuPID.output/1000.0f  - PITCH_MASS * MASS_G * PITCH_R * cos(gimbal.pitch.angle * PI / 180.0f); ////输出除一千让PID参数乘1000方便调参
+// endregion
 }
 
 /*************云台操控任务******************/
