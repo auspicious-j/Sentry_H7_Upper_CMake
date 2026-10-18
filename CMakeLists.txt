@@ -115,6 +115,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Io（设备输入适配层：视觉等外设数据接入）
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Io
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Io/Vision
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Io/Inputs
 
     # Platform（C++ 平台适配层，STM32 具体实现）
     ${CMAKE_CURRENT_SOURCE_DIR}/Platform
