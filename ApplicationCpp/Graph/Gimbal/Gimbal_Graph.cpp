@@ -1,9 +1,13 @@
 #include "Gimbal_Graph.hpp"
+#include "Gimbal_GraphApi.h"
 #include "PluginTypes.hpp"
 #include "Stm32Profiler.hpp"
 
 namespace robot::Gimbal
 {
+    Gimbal_Graph::Gimbal_Graph() : profiler_(clock_)
+    {
+    }
 
     robot::framework::plugin_status Gimbal_Graph::initialize()
     {
@@ -12,13 +16,61 @@ namespace robot::Gimbal
             return robot::framework::plugin_status::invalid_state;
         }
 
+        // 组装期绑定：下游持有上游信号的只读引用（图冻结前完成）。
+        target_node_.bind_inputs(input_node_.output());
+        target_node_.bind_state(state_node_.output());
+        state_node_.bind_inputs(input_node_.output());
+        state_node_.bind_targets(target_node_.output());
+        control_node_.bind_inputs(input_node_.output());
+        control_node_.bind_state(state_node_.output());
+        output_node_.bind_state(state_node_.output());
+
         robot::framework::plugin_status status_ = robot::framework::plugin_status::ok;
 
-        // M2 将在这里注册节点并连边：
-        //   graph_.add(input_node_);
-        //   graph_.add_dependency(input_node_, state_node_); ...
-        // 当前图为空：空图 compile 合法（0 个节点），每帧 process_frame 返回 ok。
-        status_ = graph_.set_plan_count(1U);
+        // 注册节点（ID 1..5）。
+        if (status_ == robot::framework::plugin_status::ok)
+        {
+            status_ = graph_.add(input_node_);
+        }
+        if (status_ == robot::framework::plugin_status::ok)
+        {
+            status_ = graph_.add(target_node_);
+        }
+        if (status_ == robot::framework::plugin_status::ok)
+        {
+            status_ = graph_.add(state_node_);
+        }
+        if (status_ == robot::framework::plugin_status::ok)
+        {
+            status_ = graph_.add(control_node_);
+        }
+        if (status_ == robot::framework::plugin_status::ok)
+        {
+            status_ = graph_.add(output_node_);
+        }
+
+        // 依赖边：Input → Target → State → Control → Output。
+        if (status_ == robot::framework::plugin_status::ok)
+        {
+            status_ = graph_.add_dependency(input_node_, target_node_);
+        }
+        if (status_ == robot::framework::plugin_status::ok)
+        {
+            status_ = graph_.add_dependency(target_node_, state_node_);
+        }
+        if (status_ == robot::framework::plugin_status::ok)
+        {
+            status_ = graph_.add_dependency(state_node_, control_node_);
+        }
+        if (status_ == robot::framework::plugin_status::ok)
+        {
+            status_ = graph_.add_dependency(control_node_, output_node_);
+        }
+
+        if (status_ == robot::framework::plugin_status::ok)
+        {
+            status_ = graph_.set_plan_count(1U);
+        }
         if (status_ == robot::framework::plugin_status::ok)
         {
             // compile() 内部会先 compose()（展开子图），再做校验与拓扑排序并冻结图。
@@ -56,4 +108,20 @@ namespace robot::Gimbal
 
         return result;
     }
+}
+
+namespace
+{
+// 图对象独占：C 侧只通过 AppCpp_Gimbal_* 两个函数访问。
+robot::Gimbal::Gimbal_Graph g_gimbal_graph;
+} // namespace
+
+extern "C" void AppCpp_Gimbal_Init(void)
+{
+    (void)g_gimbal_graph.initialize();
+}
+
+extern "C" void AppCpp_Gimbal_ProcessFrame(void)
+{
+    (void)g_gimbal_graph.process_frame();
 }

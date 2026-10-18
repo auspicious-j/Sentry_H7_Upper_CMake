@@ -1,4 +1,5 @@
 #include "Gimbal.h"
+#include "Gimbal_GraphApi.h"
 #include "imu_temp_ctrl.h"
 #include "USER_RC.h"
 #include "Vision.h"
@@ -262,9 +263,14 @@ void OS_GimbalCallback(void const *argument)
 {
     osDelay(1500);
     Gimbal_Init();
+
+    // 迁移后：业务由 C++ 插件图执行；旧 Task_Gimbal_Callback 保留作参考，不再调用。
+    (void)Task_Gimbal_Callback;
+    AppCpp_Gimbal_Init();
+
     for (;;)
     {
-        Task_Gimbal_Callback();
+        AppCpp_Gimbal_ProcessFrame();
         osDelay(1);
     }
 }
