@@ -119,6 +119,11 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Chassis/Mode_Node
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Chassis/Kinematics_Node
 
+    # Graph/Shooter
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Shooter
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Shooter/Input_Node
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Shooter/Logic_Node
+
     # Io（设备输入适配层：视觉等外设数据接入）
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Io
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Io/Vision

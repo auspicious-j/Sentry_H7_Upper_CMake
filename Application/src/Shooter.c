@@ -1,4 +1,5 @@
 #include "Shooter.h"
+#include "Shooter_GraphApi.h"
 #include "bsp_can.h"
 #include "Chassis.h"
 #include "USER_RC.h"
@@ -200,13 +201,13 @@ void OS_ShooterCallback(void const * argument)
     PID_Clear(&shooter.triggerMotor.anglePID.inner);
     PID_Clear(&shooter.triggerMotor.anglePID.outer);
     osDelay(100);
-	
+
+    // 迁移后：业务由 C++ 插件图执行；旧 Task_Shooter_Callback 保留作参考，不再调用。
+    AppCpp_Shooter_Init();
+
     for(;;)
 	{
-	    if(true /* JUDGE_GetShooterOutputState()||1 */)
-		{
-		    Task_Shooter_Callback();
-		}
+	    AppCpp_Shooter_ProcessFrame();
 	    osDelay(10);
 	}
 }

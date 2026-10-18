@@ -106,6 +106,7 @@ actuator_feedback read_actuator_feedback(std::uint64_t sampled_at_us)
         snapshot.fric_speed[1] = shooter.fricMotor[1].speed;
         snapshot.trigger_angle = shooter.triggerMotor.angle;
         snapshot.trigger_speed = shooter.triggerMotor.speed;
+        snapshot.trigger_total_angle = shooter.triggerMotor.totalAngle;
 
         snapshot.top_yaw_angle = gimbal.top_yawMotor.angle;
         snapshot.top_yaw_speed = gimbal.top_yawMotor.speed;

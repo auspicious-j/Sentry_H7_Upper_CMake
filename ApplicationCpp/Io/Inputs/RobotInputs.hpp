@@ -79,6 +79,7 @@ struct actuator_feedback {
     std::int16_t fric_speed[2];
     std::int16_t trigger_angle;
     std::int16_t trigger_speed;
+    std::int32_t trigger_total_angle; // 拨弹电机累计角度（Motor 任务更新）。
     // CAN2：小 yaw（DJI 6020）/ pitch（DM4310）。
     std::int16_t top_yaw_angle;
     std::int16_t top_yaw_speed;
