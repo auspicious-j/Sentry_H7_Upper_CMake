@@ -175,15 +175,15 @@ void MX_FREERTOS_Init(void) {
   RcTaskHandle = osThreadCreate(osThread(RcTask), NULL);
 
   /* definition and creation of ShooterTask */
-  osThreadDef(ShooterTask, OS_ShooterCallback, osPriorityNormal, 0, 256);
+  osThreadDef(ShooterTask, OS_ShooterCallback, osPriorityNormal, 0, 512);
   ShooterTaskHandle = osThreadCreate(osThread(ShooterTask), NULL);
 
   /* definition and creation of Chassis */
-  osThreadDef(Chassis, OS_ChassisCallback, osPriorityNormal, 0, 256);
+  osThreadDef(Chassis, OS_ChassisCallback, osPriorityNormal, 0, 768);
   ChassisHandle = osThreadCreate(osThread(Chassis), NULL);
 
   /* definition and creation of Gimbal */
-  osThreadDef(Gimbal, OS_GimbalCallback, osPriorityNormal, 0, 256);
+  osThreadDef(Gimbal, OS_GimbalCallback, osPriorityNormal, 0, 1024);
   GimbalHandle = osThreadCreate(osThread(Gimbal), NULL);
 
   /* definition and creation of VisionTask */
