@@ -1,7 +1,11 @@
+extern "C"
+{
 #include "Beep.h"
 #include "myQueue.h"
 #include "UserFreertos.h"
+#include "cmsis_os.h"
 #include "tim.h"
+}
 
 #define SOFTWARE_DELAY(t) do{uint32_t i=(t)*12000; while(i--);}while(0)//软件延时
 
@@ -53,7 +57,7 @@ void Beep_Block_PlayAll()
 {
     while(!Queue_IsEmpty(&noteQueue))//播放队列中所有音符
 	{
-	    Note *note=Queue_Dequeue(&noteQueue);
+	    Note *note=static_cast<Note *>(Queue_Dequeue(&noteQueue));
 	    Beep_Play(note->period);
 	    SOFTWARE_DELAY(note->duration);//阻塞式延时，使用软件延时防止在中断中调用
 	}
@@ -71,14 +75,14 @@ void Task_Beep_Callback()
     else
 	{
 		//播放队头音符并等待指定时值
-	    Note *note=Queue_Dequeue(&noteQueue);
+	    Note *note=static_cast<Note *>(Queue_Dequeue(&noteQueue));
 	    Beep_Play(note->period);
         osDelay(note->duration);
 	}
 }
 
 /************************freertos任务***************************/
-void OS_BeepCallback(void const * argument)
+extern "C" void OS_BeepCallback(void const * argument)
 {
   //蜂鸣器播放启动声 [do re me so la(升)]
     Beep_PlayNotes((Note[]){{T_M1,D_Sixteenth},{T_M3,D_Sixteenth},{T_M5,D_Sixteenth},{T_H1,D_Sixteenth},{T_None,D_Quarter}},5);

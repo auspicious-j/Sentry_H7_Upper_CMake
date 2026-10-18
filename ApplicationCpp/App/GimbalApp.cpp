@@ -1,5 +1,8 @@
+extern "C"
+{
 #include "Gimbal.h"
 #include "Gimbal_GraphApi.h"
+#include "cmsis_os.h"
 #include "imu_temp_ctrl.h"
 #include "USER_RC.h"
 #include "Vision.h"
@@ -11,6 +14,7 @@
 #include "arm_math.h"
 
 #include <math.h>
+}
 
 #define DEG_TO_RAD 0.01745329f  // PI / 180
 #define TOP_YAW_LIMIT 45.0f
@@ -259,7 +263,7 @@ static void Task_Gimbal_Callback(void)
 
 /*************云台操控任务******************/
 
-void OS_GimbalCallback(void const *argument)
+extern "C" void OS_GimbalCallback(void const *argument)
 {
     osDelay(1500);
     Gimbal_Init();

@@ -1,10 +1,14 @@
+extern "C"
+{
 #include "Moto.h"
+#include "cmsis_os.h"
 #include "PID.h"
 #include "bsp_can.h"
 #include "USER_Moto.h"
 #include "Shooter.h"
 #include "Gimbal.h"
 #include "Judge.h"
+}
 
 
 void Motor_ClearErr(FDCAN_HandleTypeDef *hfdcan, uint8_t id, uint8_t state)
@@ -32,7 +36,7 @@ void Task_ClearError_Callback()
   Motor_ClearErr(&hfdcan2,0x01,gimbal.pitchMotor.para.state);
 }
 
-void OS_MotorCallback(void const * argument)
+extern "C" void OS_MotorCallback(void const * argument)
 {
     osDelay(1000);
     enable_motor_mode(&hfdcan2, 0x01, MIT_MODE);

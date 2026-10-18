@@ -1,3 +1,5 @@
+extern "C"
+{
 #include "UserFreertos.h"
 #include "USER_Moto.h"
 #include "USER_B2B.h"
@@ -6,6 +8,7 @@
 #include "usart.h"
 #include "bsp_ws2812.h"
 #include <stdint.h>
+}
 
 extern DMA_HandleTypeDef hdma_usart2_rx;
 extern uint8_t usart2RxBuf[256];
@@ -17,7 +20,7 @@ extern uint8_t usart2RxBuf[256];
  鍦ㄦ仮澶嶆墽琛屾椂鍗犳嵁鍏ㄩ儴鏃堕棿鐗囬タ姝诲叾浠栦换鍔?
 */
         
-void OS_ErrorCallback(void const * argument)
+extern "C" void OS_ErrorCallback(void const * argument)
 {
     //    B2B_Init();
     osThreadSuspend(ErrorTaskHandle); //第一次执行挂起自身 

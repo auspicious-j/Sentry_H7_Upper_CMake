@@ -1,6 +1,10 @@
 #ifndef _SHOOTER_H_
 #define _SHOOTER_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "Moto.h"
 #include "USER_Moto.h"
 
@@ -50,5 +54,9 @@ typedef struct
 extern Shooter shooter;
 
 void Shooter_Init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

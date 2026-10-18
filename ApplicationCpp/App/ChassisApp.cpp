@@ -1,5 +1,8 @@
+extern "C"
+{
 #include "Chassis.h"
 #include "Chassis_GraphApi.h"
+#include "cmsis_os.h"
 #include "USER_Moto.h"
 #include "bsp_can.h"
 #include "USER_RC.h"
@@ -9,6 +12,7 @@
 #include "arm_math.h"
 
 #include <math.h>
+}
 
 float vx, vy, vw;  //AI传来的旋转速度
 
@@ -265,7 +269,7 @@ void Task_Chassis_Callback()
     }
 }
 
-void OS_ChassisCallback(void const * argument)
+extern "C" void OS_ChassisCallback(void const * argument)
 {
     osDelay(500);
     Chassis_Init();

@@ -1,3 +1,5 @@
+extern "C"
+{
 #include "Judge.h"
 #include "string.h"
 #include "cRc.h"
@@ -8,6 +10,7 @@
 #include "myQueue.h"
 
 #include <stdbool.h>
+}
 #define DISABLE_JUDGE_TASK
 
 /*****************系统数据定义**********************/
@@ -451,7 +454,7 @@ void Task_Judge_Callback()
 
 
 #ifdef EN_JUDGE_TASK
-void OS_JudgeCallback(void const *argument)
+extern "C" void OS_JudgeCallback(void const *argument)
 {
 
     osDelay(500);

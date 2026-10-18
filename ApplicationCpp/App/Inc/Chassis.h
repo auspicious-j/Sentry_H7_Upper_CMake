@@ -1,6 +1,10 @@
 #ifndef _CHASSIS_H_
 #define _CHASSIS_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "main.h"
 #include "pid.h"
 #include "Slope.h"
@@ -67,5 +71,9 @@ extern float vx,vy,vw;
 void Chassis_Init(void);
 void Chassis_InitPID(void);
 void Chassis_UpdateSlope(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

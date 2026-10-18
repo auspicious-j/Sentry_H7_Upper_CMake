@@ -1,6 +1,10 @@
 #ifndef _BEEP_H_
 #define _BEEP_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "main.h"
 
 //三个八度对应的周期(us)
@@ -61,5 +65,9 @@ void Beep_PlayNotes(Note notes[],uint8_t noteNum);
 void Beep_Block_PlayAll(void);
 //蜂鸣器任务回调
 void Task_Beep_Callback(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

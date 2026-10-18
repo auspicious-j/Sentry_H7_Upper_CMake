@@ -1,6 +1,10 @@
 #ifndef _VISION_H_
 #define _VISION_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "main.h"
 #include "stdbool.h"
 #include "Shooter.h"
@@ -137,5 +141,9 @@ extern VisionTransmit vision_transmit;
 extern VisionTarget vision_target;
 
 void Vision_DataReceive(uint8_t *read_from_usart, uint32_t length);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

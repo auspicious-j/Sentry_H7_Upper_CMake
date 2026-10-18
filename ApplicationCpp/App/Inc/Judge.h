@@ -1,6 +1,10 @@
 #ifndef _JUDGEMENT_H_
 #define _JUDGEMENT_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "main.h"
 #include "stdbool.h"
 #include <stdint.h>
@@ -503,5 +507,9 @@ extern ext_shoot_data_t			    ShootData;
 extern ext_game_robot_status_t	    GameRobotState;
 extern JudgeData_t				    USER_JudgeData;
 extern USER_SentryCmd_t			    USER_SentryCmd;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //头文件

@@ -1,5 +1,8 @@
+extern "C"
+{
 #include "Shooter.h"
 #include "Shooter_GraphApi.h"
+#include "cmsis_os.h"
 #include "bsp_can.h"
 #include "Chassis.h"
 #include "USER_RC.h"
@@ -12,6 +15,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdbool.h>
+}
 
 Shooter shooter = { .idToTrigger = -1, .triggeringId = -1 };
 
@@ -194,7 +198,7 @@ void Task_Shooter_Callback()
 	}
 }
 
-void OS_ShooterCallback(void const * argument)
+extern "C" void OS_ShooterCallback(void const * argument)
 {
     osDelay(100);
     Shooter_Init();

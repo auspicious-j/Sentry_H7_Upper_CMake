@@ -48,7 +48,6 @@ file(GLOB_RECURSE USER_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/BSP/*.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/math/*.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/UserMiddlewares/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Application/*.c"
 )
 
 # Collect user C++ sources (ApplicationCpp 插件框架)
@@ -98,8 +97,9 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     #Math
     ${CMAKE_CURRENT_SOURCE_DIR}/math/inc
 
-    # Application
-    ${CMAKE_CURRENT_SOURCE_DIR}/Application/inc
+    # ApplicationCpp App（原 Application 业务层，已迁移为 C++）
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/App
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/App/Inc
 
     # ApplicationCpp（C++17 插件框架）
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp

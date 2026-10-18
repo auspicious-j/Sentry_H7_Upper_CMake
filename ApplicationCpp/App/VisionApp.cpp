@@ -1,3 +1,5 @@
+extern "C"
+{
 #include "Vision.h"
 #include "Shooter.h"
 #include "cmsis_os.h"
@@ -10,11 +12,13 @@
 #include "Judge.h"
 #include "USER_B2B.h"
 #include "arm_math.h"
+#include "string.h"
 
 #include <stdint.h>
 #include <float.h>
 #include <math.h>
 #include <stdbool.h>
+}
 
 VisionTransmit vision_transmit;
 VisionReceive vision_receive;
@@ -39,9 +43,10 @@ void Vision_DataReceive(uint8_t *read_from_usart, uint32_t length)
 
         if (i >= 0)
         {
-            int rest = sizeof(vision_receive) - i, size = rest < length ? rest : length;
-            memcpy((void*)&vision_receive + i, read_from_usart, size);
-            i += size;
+            uint32_t rest = static_cast<uint32_t>(sizeof(vision_receive)) - static_cast<uint32_t>(i);
+            uint32_t size = rest < length ? rest : length;
+            memcpy(reinterpret_cast<uint8_t*>(&vision_receive) + i, read_from_usart, size);
+            i += static_cast<int>(size);
 
             if (i == sizeof(vision_receive))
             {
@@ -212,7 +217,7 @@ static void Vision_DataTransmit(void)
     CDC_Transmit_HS((uint8_t*)&vision_transmit, sizeof(vision_transmit));
 }
 
-void OS_VisionCallback(void const * argument)
+extern "C" void OS_VisionCallback(void const * argument)
 {
     for(;;)
     {

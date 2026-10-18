@@ -1,6 +1,10 @@
 #ifndef _GIMBAL_H_
 #define _GIMBAL_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "USER_Moto.h"
 #include "stdbool.h"
 #include "slope.h"
@@ -60,5 +64,9 @@ typedef struct
 extern Gimbal_t gimbal;
 
 void Gimbal_Init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
