@@ -113,6 +113,12 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Gimbal/Control_Node
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Gimbal/Output_Node
 
+    # Graph/Chassis
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Chassis
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Chassis/Input_Node
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Chassis/Mode_Node
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Chassis/Kinematics_Node
+
     # Io（设备输入适配层：视觉等外设数据接入）
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Io
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Io/Vision

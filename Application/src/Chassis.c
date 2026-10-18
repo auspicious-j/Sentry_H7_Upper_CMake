@@ -1,4 +1,5 @@
 #include "Chassis.h"
+#include "Chassis_GraphApi.h"
 #include "USER_Moto.h"
 #include "bsp_can.h"
 #include "USER_RC.h"
@@ -269,9 +270,12 @@ void OS_ChassisCallback(void const * argument)
     osDelay(500);
     Chassis_Init();
 
+    // 迁移后：业务由 C++ 插件图执行；旧 Task_Chassis_Callback 保留作参考，不再调用。
+    AppCpp_Chassis_Init();
+
     for(;;)
     {
-        Task_Chassis_Callback();
+        AppCpp_Chassis_ProcessFrame();
         osDelay(2);
     }
 }
