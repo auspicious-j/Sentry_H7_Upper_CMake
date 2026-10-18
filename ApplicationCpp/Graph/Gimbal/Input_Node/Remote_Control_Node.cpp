@@ -1,22 +1,27 @@
 #include "Remote_Control_Node.hpp"
 
+// C 侧头文件没有统一的 extern "C" 包装，这里整体包一层，保证 C++ 引用到的是
+// C 符号（全局变量名本来不修饰，函数名则需要 C 链接）。
+extern "C"
+{
+#include "Vision.h"
 #include "Shooter.h"
 #include "usbd_cdc_if.h"
 #include "Chassis.h"
 #include "Gimbal.h"
 #include "imu_temp_ctrl.h"
-#include "Shooter.h"
 #include "Judge.h"
 #include "USER_B2B.h"
+}
+
 #include "arm_math.h"
 
 #include <stdint.h>
 #include <float.h>
 #include <math.h>
-#include <stdbool.h>
 
-VisionReceive vision_receive;
-VisionTarget vision_target;
+// 说明：vision_receive / vision_target 由 Application/src/Vision.c 定义，
+// Vision.h 中以 extern 声明；本文件不再重复定义，避免链接期重复符号。
 
 // 装甲板解包
 static void Vision_UseArmor(void)
@@ -151,18 +156,19 @@ namespace robot::Gimbal
 {
     robot::framework::process_result Remote_Control_Node::process(robot::framework::frame_context& context)
     {
-        // 检查代码
-        if (vision_ = nullptr || !vision_->is_valid() || vision_->frame_id() != context.frame_id)
+        // M0：节点尚未注册进图；先保留“上游无本帧数据则本帧无输出”的通用骨架。
+        // M2 会把输入改成视觉快照信号，并在通过新鲜度检查后调用解包逻辑。
+        if ((vision_ == nullptr) || !vision_->is_valid() || (vision_->frame_id() != context.frame_id))
         {
             output_.invalidate();
             return robot::framework::process_result::no_new_data;
         }
 
-        // 业务代码
+        // 业务代码（迁移期仍读取 C 侧解析好的全局结构）
         Vision_UseData();
 
         // 末尾输出
-        output_.publish(context.frame_id, vision->read());
+        output_.publish(context.frame_id, vision_->read());
         return robot::framework::process_result::ok;
     }
 }
