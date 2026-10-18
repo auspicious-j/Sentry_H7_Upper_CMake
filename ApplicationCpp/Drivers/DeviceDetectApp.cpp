@@ -1,9 +1,12 @@
-#include "USER_Detcet.h"
+extern "C"
+{
+#include "USER_Detect.h"
 #include "bsp_can.h"
 #include "UserFreertos.h"
 #include "Beep.h"
 #include "Judge.h"
 #include "USER_B2B.h"
+}
 
 uint32_t rs485_cnt = 0;
 
@@ -121,7 +124,7 @@ uint8_t Detect_IsDeviceLost(uint8_t deviceID)
     return detectList[deviceID].isLost;
 }
 
-void OS_DetectCallback(void const *argument)
+extern "C" void OS_DetectCallback(void const *argument)
 {
     osDelay(2000);
     for (;;)

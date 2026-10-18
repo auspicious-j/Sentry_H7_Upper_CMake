@@ -1,6 +1,9 @@
+extern "C"
+{
 #include "USER_Moto.h"
 #include "degree.h"
 #include "dji_angle.h"
+}
 
 /********************积累DJI电机累计角度************************/
 void Motor_StartCalcAngle(DJI_Motor_t *motor)

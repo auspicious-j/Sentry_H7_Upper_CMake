@@ -1,3 +1,5 @@
+extern "C"
+{
 #include "USER_B2B.h"
 #include "Chassis.h"
 #include "usart.h"
@@ -7,6 +9,7 @@
 #include <string.h>
 #include "Vision.h"
 #include "Judge.h"
+}
 
 extern DMA_HandleTypeDef hdma_usart2_rx;
 float chassis_yaw = 0;
@@ -108,7 +111,7 @@ void B2B_Receive(void)
 }
 
 /************************freertos任务****************************/
-void OS_Board2BoardCallback(void const *argument)
+extern "C" void OS_Board2BoardCallback(void const *argument)
 {
     while (1)
 	{

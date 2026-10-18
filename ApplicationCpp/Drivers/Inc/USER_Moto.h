@@ -1,6 +1,10 @@
 #ifndef _USER_MOTO_H_
 #define _USER_MOTO_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "main.h"
 #include "bsp_can.h"
 #include "fdcan.h"
@@ -117,5 +121,9 @@ void Motor_CalcAngle(DJI_Motor_t *motor);
 void Motor_StartCalcAngle_J4310(Double_motor_t *motor);
 void Motor_CalcAngle_J4310(Double_motor_t *motor);
 void clear_err(FDCAN_HandleTypeDef* hfdcan, uint16_t motor_id, uint16_t mode_id);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -1,5 +1,10 @@
 #ifndef _USER_RC_H_
 #define _USER_RC_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "USER_RC.h"
 #include "stdint.h"
 #include "usart.h"
@@ -191,5 +196,9 @@ extern MC6C_RC_t rcInfo_MC6C;
 extern DR16_RC_T rcInfo_DR16;
 extern ET08_RC_t rcInfo_ET08; 
 extern RC_TypeDef rcInfo;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

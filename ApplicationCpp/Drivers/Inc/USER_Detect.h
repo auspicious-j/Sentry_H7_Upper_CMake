@@ -1,6 +1,10 @@
 #ifndef _USER_DETECT_H_
 #define _USER_DETECT_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "main.h"
 
 // 连接在主板上的设备的标识(即设备离线信息列表中的下标)
@@ -49,5 +53,9 @@ void Detect_InitAll(void);
 void Task_Detect_Callback(void);
 
 extern DetectDevice detectList[DETECT_DEVICE_NUM];
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

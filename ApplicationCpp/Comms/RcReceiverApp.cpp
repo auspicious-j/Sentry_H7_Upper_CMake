@@ -1,3 +1,5 @@
+extern "C"
+{
 #include "USER_RC.h"
 #include "stm32h7xx_hal.h"
 #include "usart.h"
@@ -5,6 +7,7 @@
 #include "UserFreertos.h"
 #include "USER_Moto.h"
 #include "USER_B2B.h"
+}
 
 
 uint8_t usart5RxBuf[25]; // 串口5缓冲区
@@ -229,7 +232,7 @@ void ET08_ToUnified(ET08_RC_t *rc_ET08, RC_TypeDef *rc)
 }
 
 // 串口5空闲中断回调
-void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+extern "C" void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
     if (huart == &huart2)
 	{
@@ -272,7 +275,7 @@ void Task_RC_Callback()
 }
 
 /************************freertos任务****************************/
-void OS_RcCallback(void const *argument)
+extern "C" void OS_RcCallback(void const *argument)
 {
 
     for (;;)

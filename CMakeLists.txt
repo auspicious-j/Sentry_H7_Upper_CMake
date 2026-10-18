@@ -47,7 +47,6 @@ file(GLOB_RECURSE USER_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/IMU/*.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/BSP/*.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/math/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/UserMiddlewares/*.c"
 )
 
 # Collect user C++ sources (ApplicationCpp 插件框架)
@@ -91,8 +90,11 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     #BSP
     ${CMAKE_CURRENT_SOURCE_DIR}/BSP/inc
 
-    #UserMiddlewares
-    ${CMAKE_CURRENT_SOURCE_DIR}/UserMiddlewares/inc
+    # UserMiddlewares -> ApplicationCpp（Motor 驱动 / RC / B2B / Detect）
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Comms
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Comms/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Drivers
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Drivers/Inc
 
     #Math
     ${CMAKE_CURRENT_SOURCE_DIR}/math/inc
