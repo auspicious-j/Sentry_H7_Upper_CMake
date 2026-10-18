@@ -15,8 +15,8 @@
  *   汇合(merge)：把多条分支末端的输出收拢为单一输出，且只转发本帧被选中分支的结果。
  *
  * 用途：位于多分支子图末端。各上游分支各自产出同类型结果 t，本节点在每一帧
- *       根据共享 selector 的 active_branch_id()，仅把对应分支的本帧结果转发到唯一
- *       输出端口 output_，从而完成“多路合一”。
+ *       根据共享 selector 的 active_branch_id()，仅把对应分支的本帧结果转发到内部
+ *       汇合信号 signal_（通过 signal() 以只读方式暴露），从而完成“多路合一”。
  *
  * 线程模型：与其余节点一致，process/on_skipped 只由所属执行器任务在帧内调用。
  */
@@ -37,11 +37,9 @@ public:
      * 参数：
      *   id       本节点编号。
      *   selector 与上游分支共享的分支选择器（按引用持有，生命周期由外部保证）。
-     * 副作用：把唯一输出端口 output_ 绑定到内部信号 signal_。
      */
     branch_merge_node(plugin_id id, branch_selector& selector) : plugin_node(id), selector_(selector)
     {
-        output_.bind(signal_);
     }
     /*
      * bind_input —— 组装期（configure 之前）绑定某条分支编号末端的输出信号。
@@ -57,7 +55,7 @@ public:
         {
             return false;
         }
-        inputs_[branch_id].bind(source);
+        inputs_[branch_id] = &source;
         return true;
     }
     /*
@@ -74,7 +72,7 @@ public:
         // branch_id：当前正在检查的输入下标（取值 0 .. branch_count-1）。
         for (uint16_t branch_id = 0U; branch_id < branch_count; ++branch_id)
         {
-            if (!inputs_[branch_id].is_connected())
+            if (inputs_[branch_id] == nullptr)
             {
                 return plugin_status::configuration_fault;
             }
@@ -86,20 +84,25 @@ public:
      * 参数 context：当前帧上下文（提供 frame_id 等）。
      * 返回：
      *   ok        成功发布选中分支编号的本帧结果；
-     *   no_new_data 分支编号越界，或选中分支编号的输入对本帧无效（无新数据）；
-     *   fault     发布失败。
+     *   no_new_data 分支编号越界/输入未绑定，或选中分支的输入对本帧无效（无新数据）。
      * 副作用：无条件先 invalidate() 失效内部信号；若成功发布则信号被置为有效。
      */
     process_result process(frame_context& context) override
     {
         signal_.invalidate();
         const uint16_t branch_id = selector_.active_branch_id(); // 本帧锁存的生效分支编号。
-        if (branch_id >= branch_count || !inputs_[branch_id].is_valid_for_frame(context.frame_id))
+        if (branch_id >= branch_count || inputs_[branch_id] == nullptr)
         {
             return process_result::no_new_data;
         }
-        return output_.publish(context.frame_id, inputs_[branch_id].read())
-            ? process_result::ok : process_result::fault;
+        const frame_signal<t>& input = *inputs_[branch_id];
+        // 严格同帧校验：已发布且写入帧号等于本帧，才认为数据有效。
+        if (!input.is_valid() || input.frame_id() != context.frame_id)
+        {
+            return process_result::no_new_data;
+        }
+        signal_.publish(context.frame_id, input.read());
+        return process_result::ok;
     }
     /*
      * on_skipped —— 本帧被跳过时调用。
@@ -116,9 +119,8 @@ public:
 private:
     static_assert(branch_count > 0U, "At least one branch input is required");
     branch_selector& selector_; // 外部共享的分支选择器引用。
-    input_port<t> inputs_[branch_count]{}; // 每条分支编号一个输入端口，下标即分支编号编号。
-    frame_signal<t> signal_{}; // 汇合结果存储；被 output_ 绑定。
-    output_port<t> output_{}; // 唯一结果写端。
+    const frame_signal<t>* inputs_[branch_count]{}; // 每条分支编号一个只读输入信号指针，下标即分支编号。
+    frame_signal<t> signal_{}; // 汇合结果存储；下游通过 signal() 读取。
 };
 
 } // namespace robot::framework

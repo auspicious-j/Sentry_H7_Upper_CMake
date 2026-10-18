@@ -13,6 +13,14 @@
 #ifndef robot_stm32_interrupt_snapshot_lock_hpp
 #define robot_stm32_interrupt_snapshot_lock_hpp
 
+/* cmsis_gcc.h 中的 __cmsis_start() 使用了“函数内局部类型 + extern 声明”的写法，
+   这是合法 C、但非法 C++ 语法（本头文件会被 C++ 源文件包含）。
+   在包含 CMSIS 之前把 __PROGRAM_START 定义为空，跳过该函数体即可；
+   __PROGRAM_START 只在启动代码里使用，本编译单元不需要它。 */
+#ifndef __PROGRAM_START
+#define __PROGRAM_START
+#endif
+
 #if defined(__ARMCC_VERSION)
 #include "cmsis_armclang.h"
 #else

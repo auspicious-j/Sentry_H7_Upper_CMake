@@ -14,7 +14,10 @@ namespace robot::Gimbal
 
         robot::framework::plugin_status status_ = robot::framework::plugin_status::ok;
 
-
+        if (status_ == robot::framework::plugin_status::ok)
+        {
+            status_ = 
+        }
 
         is_initialized_ = (status_ == robot::framework::plugin_status::ok);
 
@@ -29,10 +32,10 @@ namespace robot::Gimbal
         }
 
         profiler_.begin_frame();
-        const robot::framework::process_result result = graph_.process_frame(frame_context_, profiler_);
+        const robot::framework::process_result result = graph_.process_frame(frame_context_, &profiler_);
         profiler_.end_frame();
 
-        frame_context_++;
+        frame_context_.frame_id++;
 
         return result;
     }

@@ -33,7 +33,7 @@ xFrameHeader FrameHeader; // 发送帧头信息
 /****************************************************/
 
 JudgeData_t USER_JudgeData;
-USER_SentryCmd_t USER_SentryCmd;
+USER_SentryCmd_t USER_SentryCmd;// 哨兵ai自主指令，发给下板和云台
 
 
 bool Judge_Data_TF = false; // 裁判数据是否可用,辅助函数调用

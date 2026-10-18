@@ -64,6 +64,7 @@ void Vision_DataReceive(uint8_t *read_from_usart, uint32_t length)
     }
 }
 
+// 装甲板解包
 static void Vision_UseArmor(void)
 {
     vision_target.vaild = true;
@@ -86,6 +87,7 @@ static void Vision_UseArmor(void)
     }
 }
 
+// 打符解包
 static void Vision_UseRune(void)
 {
     int index = -1;// 当前最优的符id
@@ -155,14 +157,17 @@ static void Vision_UseRune(void)
     }
 }
 
+//vision解包 输出USER_SentryCmd
 static void Vision_UseData(void)
 {
     vx=-vision_receive.linear_y*1000; //ai部分解包 同时转换坐标系 ai坐标系下向前为x 左右为y 电控坐标系下 左右为x 前后为y
     vy=-vision_receive.linear_x*1000;
     vw=vision_receive.angular_z;
 
+    // 解包给底盘
     chassis.rotate.align_yaw = vision_receive.align_yaw;
 
+    // 解包电控侧哨兵自主指令
     USER_SentryCmd.sentry_mode = vision_receive.sentry_mode;
     USER_SentryCmd.armor_mode = vision_receive.armor_mode;
     USER_SentryCmd.look_yaw = vision_receive.look_yaw;
@@ -176,11 +181,11 @@ static void Vision_UseData(void)
     switch (vision_receive.mode)
     {
     case VISION_RECEIVE_ARMOR:
-        Vision_UseArmor();
+        Vision_UseArmor();// 装甲板解包
     break;
 
     case VISION_RECEIVE_RUNE:
-        Vision_UseRune();
+        Vision_UseRune();// 打符解包
     break;
 
     default:
@@ -188,6 +193,7 @@ static void Vision_UseData(void)
     }
 }
 
+// vision打包+发送
 static void Vision_DataTransmit(void)
 {
     vision_transmit.header = VISION_FRAME_HEADER_TX;

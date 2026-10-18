@@ -15,9 +15,9 @@ namespace robot::Gimbal
     public:
         Gimbal_Graph();
 
-        robot::framework::plugin_state initialize();
+        robot::framework::plugin_status initialize();
 
-        robot::framework::plugin_state process_frame();
+        robot::framework::process_result process_frame();
 
         bool is_initialized() const
         {
