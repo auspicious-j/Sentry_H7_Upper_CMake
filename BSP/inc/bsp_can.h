@@ -5,7 +5,6 @@
 #include "cmsis_os.h"
 
 //can????? debug?
-//can错误计数器 debug用
 typedef struct
 {
 	HAL_StatusTypeDef can1_user_init_error,can2_user_init_error,can3_user_init_error;
@@ -17,7 +16,6 @@ typedef struct
 void CAN_Init(void);
 
 /****??????****/
-/****外部调用函数****/
 void USER_CAN_Send(FDCAN_HandleTypeDef* hfdcan,int16_t StdId,uint8_t* tx_data);
 
 #endif

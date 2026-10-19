@@ -32,7 +32,7 @@
 #include "bsp_can.h"
 #include "beep.h"
 #include "USER_B2B.h"
-#include "USER_Detcet.h"
+#include "USER_Detect.h"
 #include "bsp_dwt.h"
 #include "Judge.h"
 #include "USER_RC.h"

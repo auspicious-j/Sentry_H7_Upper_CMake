@@ -14,7 +14,6 @@
 #define _QUAT_EKF_H
 #include "kalman_filter.h"
 
-/* boolean type definitions */
 typedef struct
 {
     uint8_t Initialized;

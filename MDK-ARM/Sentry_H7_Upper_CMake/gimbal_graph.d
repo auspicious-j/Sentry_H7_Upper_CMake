@@ -1,0 +1,23 @@
+sentry_h7_upper_cmake/gimbal_graph.o: \
+  ..\ApplicationCpp\Graph\Gimbal\Gimbal_Graph.cpp \
+  ..\ApplicationCpp\Graph\Gimbal\Gimbal_Graph.hpp \
+  ..\ApplicationCpp\Framework\PluginGraph.hpp \
+  ..\ApplicationCpp\Graph\Gimbal\Gimbal_Graph_Config.h \
+  ..\ApplicationCpp\Framework\PluginTypes.hpp \
+  ..\ApplicationCpp\Framework\IProfiler.hpp \
+  ..\ApplicationCpp\Framework\BranchSelector.hpp \
+  ..\ApplicationCpp\Framework\NodeTransitionContext.hpp \
+  ..\ApplicationCpp\Framework\PluginNode.hpp \
+  ..\Platform\STM32\Stm32Clock.hpp \
+  ..\Platform\STM32\..\..\ApplicationCpp\Platform\IClock.hpp \
+  ..\Platform\STM32\Stm32Profiler.hpp \
+  ..\Platform\STM32\..\..\ApplicationCpp\Framework\IProfiler.hpp \
+  ..\ApplicationCpp\Graph\Gimbal\Gimbal_Types.hpp \
+  ..\ApplicationCpp\Io\Inputs\RobotInputs.hpp \
+  ..\ApplicationCpp\Graph\Gimbal\Input_Node\Gimbal_Input_Node.hpp \
+  ..\ApplicationCpp\Framework\Ports.hpp \
+  ..\ApplicationCpp\Graph\Gimbal\Target_Node\Gimbal_Target_Node.hpp \
+  ..\ApplicationCpp\Graph\Gimbal\State_Node\Gimbal_State_Node.hpp \
+  ..\ApplicationCpp\Graph\Gimbal\Control_Node\Gimbal_Control_Node.hpp \
+  ..\ApplicationCpp\Graph\Gimbal\Output_Node\Gimbal_Output_Node.hpp \
+  ..\ApplicationCpp\Graph\Gimbal\Gimbal_GraphApi.h

@@ -2,12 +2,10 @@
 #include "cmsis_os.h"
 #include "BMI088driver.h"
 #include "gpio.h"
-//#include "tim.h"
 #include "kalman_filter.h"
 #include "QuaternionEKF.h"
 #include "imu_temp_ctrl.h"
 
-//#include "bsp_PWM.h"
 #include <math.h>
 #include <stdbool.h>
 
@@ -32,8 +30,6 @@ void INS_Init(void)
     }
 }
 
-//    PID_Calculate(&TempCtrl, INS.temp, RefTemp);
-//    TIM_Set_PWM(&htim3, TIM_CHANNEL_4, float_constrain(float_rounding(TempCtrl.Output), 0, UINT32_MAX));
 void INS_Task(void)
 {
     static uint32_t count = 0;
@@ -41,7 +37,7 @@ void INS_Task(void)
     if ((count % 1) == 0)
     {
         BMI088_read(INS.gyro, INS.accel, &INS.temp);
-
+        
         if (attitude_flag == 2)
         {
             gyro_correct[0] = -0.0013251846;
@@ -82,7 +78,6 @@ void INS_Task(void)
 
     if ((count % 10) == 0)
     {
-        //        IMU_Temperature_Ctrl();
         static uint32_t temp_Ticks = 0;
         if ((fabsf(INS.temp - RefTemp) < 30.0f) && attitude_flag == 0)
         {

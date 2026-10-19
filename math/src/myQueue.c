@@ -48,7 +48,7 @@ uint8_t Queue_IsEmpty(Queue *queue)
 void* Queue_GetElement(Queue *queue,uint16_t position)
 {
     if(position>=Queue_Size(queue)) return NULL;
-
+	
     return queue->data[(queue->front+position)%queue->maxSize];
 }
 
@@ -56,7 +56,7 @@ void* Queue_GetElement(Queue *queue,uint16_t position)
 void* Queue_Top(Queue *queue)
 {
     if(Queue_IsEmpty(queue)) return NULL;
-
+	
     return queue->data[queue->front];
 }
 
@@ -64,7 +64,7 @@ void* Queue_Top(Queue *queue)
 void* Queue_Dequeue(Queue *queue)
 {
     if(Queue_IsEmpty(queue)) return NULL;
-
+	
     void* res=queue->data[queue->front];
     queue->front=(queue->front+1)%queue->maxSize;
     return res;
@@ -74,7 +74,7 @@ void* Queue_Dequeue(Queue *queue)
 void Queue_Enqueue(Queue *queue,void* data)
 {
     if(Queue_IsFull(queue)) return;
-
+	
 	//如果缓冲区指针为空说明未附加保存区，入队原始指针
     if(queue->buffer == NULL)
 	{
@@ -87,6 +87,6 @@ void Queue_Enqueue(Queue *queue,void* data)
 					    queue->bufElemSize);
 	    queue->data[queue->rear]=(uint8_t*)(queue->buffer) + (queue->rear)*(queue->bufElemSize);
 	}
-
+	
     queue->rear=(queue->rear+1)%queue->maxSize;
 }

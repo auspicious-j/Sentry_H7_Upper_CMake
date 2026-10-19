@@ -51,7 +51,8 @@ sentry_h7_upper_cmake/main.o: ..\Core\Src\main.c ..\Core\Inc\main.h \
   ..\Core\Inc\tim.h ..\Core\Inc\usart.h ..\USB_DEVICE\App\usb_device.h \
   ..\Middlewares\ST\STM32_USB_Device_Library\Core\Inc\usbd_def.h \
   ..\USB_DEVICE\Target\usbd_conf.h ..\Core\Inc\gpio.h \
-  ..\BSP\inc\bsp_can.h ..\Application\inc\beep.h \
-  ..\UserMiddlewares\inc\USER_B2B.h ..\UserMiddlewares\inc\USER_Detcet.h \
-  ..\BSP\inc\bsp_dwt.h ..\Application\inc\Judge.h \
-  ..\UserMiddlewares\inc\USER_RC.h
+  ..\BSP\inc\bsp_can.h ..\ApplicationCpp\App\Inc\beep.h \
+  ..\ApplicationCpp\Comms\Inc\USER_B2B.h \
+  ..\ApplicationCpp\Drivers\Inc\USER_Detect.h ..\BSP\inc\bsp_dwt.h \
+  ..\ApplicationCpp\App\Inc\Judge.h \
+  ..\ApplicationCpp\Comms\Inc\USER_RC.h

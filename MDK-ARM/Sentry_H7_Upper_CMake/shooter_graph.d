@@ -1,0 +1,20 @@
+sentry_h7_upper_cmake/shooter_graph.o: \
+  ..\ApplicationCpp\Graph\Shooter\Shooter_Graph.cpp \
+  ..\ApplicationCpp\Graph\Shooter\Shooter_Graph.hpp \
+  ..\ApplicationCpp\Framework\PluginGraph.hpp \
+  ..\ApplicationCpp\Graph\Gimbal\Gimbal_Graph_Config.h \
+  ..\ApplicationCpp\Framework\PluginTypes.hpp \
+  ..\ApplicationCpp\Framework\IProfiler.hpp \
+  ..\ApplicationCpp\Framework\BranchSelector.hpp \
+  ..\ApplicationCpp\Framework\NodeTransitionContext.hpp \
+  ..\ApplicationCpp\Framework\PluginNode.hpp \
+  ..\Platform\STM32\Stm32Clock.hpp \
+  ..\Platform\STM32\..\..\ApplicationCpp\Platform\IClock.hpp \
+  ..\Platform\STM32\Stm32Profiler.hpp \
+  ..\Platform\STM32\..\..\ApplicationCpp\Framework\IProfiler.hpp \
+  ..\ApplicationCpp\Graph\Shooter\Shooter_Types.hpp \
+  ..\ApplicationCpp\Io\Inputs\RobotInputs.hpp \
+  ..\ApplicationCpp\Graph\Shooter\Input_Node\Shooter_Input_Node.hpp \
+  ..\ApplicationCpp\Framework\Ports.hpp \
+  ..\ApplicationCpp\Graph\Shooter\Logic_Node\Shooter_Logic_Node.hpp \
+  ..\ApplicationCpp\Graph\Shooter\Shooter_GraphApi.h

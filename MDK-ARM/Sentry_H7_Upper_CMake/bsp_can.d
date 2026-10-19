@@ -48,6 +48,6 @@ sentry_h7_upper_cmake/bsp_can.o: ..\BSP\src\bsp_can.c \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\queue.h \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\semphr.h \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\event_groups.h \
-  ..\UserMiddlewares\inc\USER_Moto.h ..\math\inc\PID.h \
-  ..\Application\inc\Shooter.h ..\Application\inc\Moto.h \
-  ..\Application\inc\Gimbal.h ..\math\inc\slope.h
+  ..\ApplicationCpp\Drivers\Inc\USER_Moto.h ..\math\inc\PID.h \
+  ..\ApplicationCpp\App\Inc\Shooter.h ..\ApplicationCpp\App\Inc\Moto.h \
+  ..\ApplicationCpp\App\Inc\Gimbal.h ..\math\inc\slope.h

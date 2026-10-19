@@ -52,4 +52,5 @@ sentry_h7_upper_cmake/user_b2b.o: ..\UserMiddlewares\src\USER_B2B.c \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\semphr.h \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\event_groups.h \
   ..\Core\Inc\usart.h ..\Application\inc\Gimbal.h \
-  ..\Application\inc\Vision.h ..\Application\inc\Judge.h
+  ..\Application\inc\Vision.h ..\Application\inc\Shooter.h \
+  ..\Application\inc\Moto.h ..\Application\inc\Judge.h

@@ -19,7 +19,7 @@
 #define ARM_MATH_CM4
 #define ARM_MATH_MATRIX_CHECK
 #define ARM_MATH_ROUNDING
-#define ARM_MATH_DSP    // define in arm_math.h
+#define ARM_MATH_DSP
 */
 
 
@@ -28,7 +28,6 @@
 //#include "math.h"
 #include "stdint.h"
 #include "stdlib.h"
-//#include "arm_math.h"
 #include "dsp/matrix_functions.h"
 #include "dsp/fast_math_functions.h"        
 
