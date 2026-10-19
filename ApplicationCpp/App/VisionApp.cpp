@@ -23,6 +23,7 @@ extern "C"
 }
 
 #include "VisionLink.hpp"
+#include "VisionTargetMailbox.hpp"
 
 VisionTransmit vision_transmit;
 VisionReceive vision_receive;

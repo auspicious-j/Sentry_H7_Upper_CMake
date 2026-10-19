@@ -1,298 +1,204 @@
 # ApplicationCpp
 
-This directory contains user-owned C++17 application and plugin framework code.
+C++17 静态插件图框架 + 三张业务图。CubeMX 生成的 C 代码（`Core/`、`Drivers/`、`USB_DEVICE/`、`Middlewares/`）保持原样，本目录只在其上做「搬运 → 决策 → 回写」的重构。
 
-CubeMX-generated C files remain under `Core/`, `Drivers/`, `USB_DEVICE/`, and
-`Middlewares/`. The C++ layer enters through the small `extern "C"` bridge in
-`app_cpp_entry.h`; it does not replace `main.c` or `freertos.c`.
+本文只描述当前代码里真实存在的东西。历史上那套「单一组合根 + 演示链路」（`g_robot_debug`、`ROBOT_ENABLE_*`、分支/计划/比较演示）已从构建中移除，见 §9。
 
-## 底盘反馈观察阶段（2026-10-09）
-
-当前链路：旧 `B2B_Receive()` → C 快照 → `legacy_chassis_feedback_source` →
-`chassis_feedback_node` → `chassis_observer_node` → `g_robot_debug.chassis`。
-底盘反馈来自 USART2 下板，之前的 CAN motor_feedback_node 是云台/发射机构反馈。
-
-- 不改底盘算法、板间发送、CubeMX 或旧电机输出。
-- 两个节点按显式依赖在同一执行器运行；端口不用于异步直接共享。
-- C 侧复制快照时短暂屏蔽中断并恢复原 PRIMASK；初始化时间戳 0 不作为无数据标记。
-- 仅继承旧接收器的帧头/帧尾校验，未新增 CRC、长度校验或 DMA 缓冲管理。
-- 帧率保持 1 kHz；接收计数只随真实板间帧增长。原始反馈不额外滤波，保持值及年龄可见。
-- `ROBOT_ENABLE_CHASSIS_OBSERVER=0` 禁用本阶段观察对象与记录；
-  `ROBOT_CHASSIS_FEEDBACK_TIMEOUT_MS` 控制观测超时，默认 100 ms。
-- `is_online` 表示下板帧是否超时，不是单个电机的在线判据，也不触发急停。
-
-### Keil 实车观测（用户执行）
-
-重新载入工程、编译、下载后，在 Watch 展开 `g_robot_debug`：
-
-| 字段 | 预期 |
-| --- | --- |
-| `graph_node_count` / `graph_edge_count` | 不启用分支演示时：开启底盘观察为 5 / 1；关闭为 3 / 0 |
-| `is_initialized` / `running` / `init_error` | 1 / 1 / 0 |
-| `chassis.frame_id` | 随插件帧增长 |
-| `chassis.receive_count` | 仅下板有效格式帧到达时增长 |
-| `chassis.is_received` | 从未收到为 0，首次收到后为 1 |
-| `chassis.age_ms` | 最近下板样本的年龄（is_received=1 时有效） |
-| `chassis.is_online` | 已接收且年龄不超过阈值时为 1 |
-| `chassis.steering_deg[0..3]` | 对照旧 `chassis.motors[i].TurnAngle`，未扣零偏 |
-| `chassis.drive_rpm[0..3]` | 对照旧 `chassis.motors[i].now_Speed` |
-| `chassis.is_lower_feedback` | 对照旧 `FEEDBACK` 原值 |
-
-断流后保留最后角度/轮速，is_online 变 0；恢复反馈后重新变 1。
-暂停调试时可能停在快照复制中途，多个 Watch 字段不保证同时刷新。
-用户已反馈本阶段 Keil 编译通过；实际周期与实车行为待后续统一烧录验证。
-
-
-## 后续范围修订（2026-10-09）
-
-后续以框架和薄适配层为主，保留团队原有业务算法，不继续重写底盘解算。
-预定义分支编号、预验证执行计划切换、生命周期通知和最新值邮箱均已有实现，原始板块已收到用户编译通过反馈。
-ROS 2 通信桥接与 ONNX/RKNN 推理后端留作上位机扩展，不成为 STM32 依赖。
-
-最新用户约定：不再逐板块等待用户 Keil 编译；助手连续推进并自行做可用检查，最后由用户统一烧录观察。旧源码和输出链路保持原样。
-详细决策见 `doc/插件化架构设计讨论-01.md`。
-
-
-## 条件分支板块（2026-10-09，用户已确认 Keil 编译通过）
-
-本阶段增加固定 DAG 内的条件执行，代码只产生算术演示数据，不调用电机、CAN、UART 或旧业务函数。
+## 1. 分工
 
 ```text
-公共输入 10 ─┬─ 分支编号 A（父节点条件 0）：加 1 → 乘 2 ─┐
-             └─ 分支编号 B（父节点条件 1）：减 1 → 乘 3 ─┴─ 汇合 → Debug
+CubeMX / HAL / FreeRTOS        外设、中断、任务骨架（C）
+        ↓ 短临界区整份拷贝
+ApplicationCpp/Io              C 全局量 → POD 快照（纯搬运，无业务判断）
+        ↓ 端口 / 快照邮箱
+ApplicationCpp/Graph           三张插件图，每帧算一次（业务决策）
+        ↓ 提交
+C 侧全局量 + CAN / UART / USB   由原有 C 代码继续下发，不经过本层
 ```
 
-分支编号 A/B 都是普通 plugin_node，内部各有两个普通节点和一张图。根执行计划统一展开它们；父节点的分支条件自动向后代传递，不递归重复执行业务。
+- 图入口是 `extern "C"` 的 `AppCpp_<子系统>_Init()` / `AppCpp_<子系统>_ProcessFrame()`，声明在 `Graph/<子系统>/<子系统>_GraphApi.h`。
+- 每张图由自己的 FreeRTOS 任务驱动，**没有**统一的控制执行器。
+- 跨任务 / 跨中断只有两种边界：`frame_signal<t>`（同帧内、图内）与 `latest_snapshot_mailbox<t>`（跨任务最新值）。
 
-### Watch 使用
+| 路径 | 内容 | 有业务判断 |
+| --- | --- | --- |
+| `Framework/` | 图调度器与基础设施 | 否 |
+| `Graph/{Gimbal,Chassis,Shooter}/` | 三张业务图及其节点 | 是 |
+| `Io/Inputs/` | `read_imu` / `read_rc` / `read_judge` / `read_actuator_feedback` | 否 |
+| `Io/Vision/` | USB 环形缓冲、消帧解码、视觉快照邮箱 | 否 |
+| `Platform/STM32/` | DWT 微秒时钟、profiler、PRIMASK 临界区 | 否 |
+| `Comms/` | 遥控器接收、板间通信（原 `UserMiddlewares`） | 是 |
+| `Drivers/` | 电机驱动、设备检测（原 `UserMiddlewares`） | 是 |
+| `App/` | 各任务入口 `OS_*Callback` + 迁移期保留的旧实现 | 有（旧实现不调用） |
 
-保持 `ROBOT_USE_PLUGIN_GRAPH=0`；它仍是旧输出接管的预留开关，本例不发送硬件命令。
-`ROBOT_ENABLE_BRANCH_DEMO` 控制演示对象组装，默认 1。正常初始化为 `is_initialized=1`、`init_error=0`。
+## 2. 任务与周期
 
-下表仅适用于关闭执行计划演示（`ROBOT_ENABLE_PLAN_DEMO=0`）时：
+`Core/Src/freertos.c` 建 15 个任务，全部声明为 `__weak` 桩；强符号实现分散在 `App/`、`Comms/`、`Drivers/` 以及 C 侧的 `IMU/src/imu_temp_ctrl.c`、`BSP/src/bsp_ws2812.c`。
 
-| 底盘观察 / 分支演示 | 节点 / 边 |
-| --- | --- |
-| 1 / 1 | 14 / 7 |
-| 0 / 1 | 12 / 6 |
-| 1 / 0 | 5 / 1 |
-| 0 / 0 | 3 / 0 |
+| 任务 | 优先级 | 栈(字) | 循环 | 实现 | 驱动对象 |
+| --- | --- | ---: | --- | --- | --- |
+| `Gimbal` | Normal | 1024 | `osDelay(1)` → 1 kHz | `App/GimbalApp.cpp` | Gimbal 图（6 节点） |
+| `Chassis` | Normal | 768 | `osDelay(2)` → 500 Hz | `App/ChassisApp.cpp` | Chassis 图（3 节点） |
+| `ShooterTask` | Normal | 512 | `osDelay(10)` → 100 Hz | `App/ShooterApp.cpp` | Shooter 图（2 节点） |
+| `VisionTask` | Normal | 512 | `osDelay(1)` → 1 kHz | `App/VisionApp.cpp` | `VisionLink_Poll` + 视觉回传 |
+| `RS485Task` | High | 512 | `osDelay(1)` → 1 kHz | `Comms/BoardToBoardApp.cpp` | USART2 板间帧发送 |
+| `MotorTask` | Normal | 512 | `osDelay(1)` → 1 kHz | `App/MotoApp.cpp` | CAN 电流/MIT 下发 |
+| `IMUTask` | Normal | 2048 | `osDelay(1)` → 1 kHz | `IMU/src/imu_temp_ctrl.c` | BMI088 + 四元数 EKF |
+| `RcTask` | AboveNormal | 256 | `osDelay(15)` ≈ 66 Hz | `Comms/RcReceiverApp.cpp` | SBUS 遥控器 |
+| `JudgeTask` | Normal | 256 | `osDelay(100)` → 10 Hz | `App/JudgeApp.cpp` | 裁判系统 UART |
+| `DetectTask` | Normal | 256 | `osDelay(10)` → 100 Hz | `Drivers/DeviceDetectApp.cpp` | 设备在线检测 |
+| `BeepTask` | Normal | 256 | `osDelay(20)` → 50 Hz | `App/BeepApp.cpp` | 蜂鸣器 |
+| `LEDTask` | BelowNormal | 128 | 500 ms | `BSP/src/bsp_ws2812.c` | WS2812 心跳灯 |
+| `ErrorTask` | Realtime | 128 | 急停循环 | `App/UserFreertosApp.cpp` | 关断电机 + 复位 |
+| `SuperCapTask` | Normal | 128 | — | **无实现**（`__weak` 空循环） | — |
+| `defaultTask` | Normal | 512 | `osDelay(1)` | `freertos.c` | USB Device 初始化后空转 |
 
-在 Watch 中修改 `g_robot_debug.branch.requested_id`：
+两点需要注意：
 
-- 0：下一帧选 A，`output_value=22`。
-- 1：下一帧选 B，`output_value=27`。
-- 其他值：保留上一合法分支编号，`rejected_frames` 在每个请求非法的帧递增。
+- 「1 kHz」是名义值。`configTICK_RATE_HZ = 1000`，`osDelay(1)` 实为 1 tick + 调度延迟；四个高频任务与 `Beep/Judge/Detect` 同为 `osPriorityNormal`，靠 tick 轮转分时，周期抖动没有额外约束。
+- `Chassis/Gimbal/ShooterTask` 的栈（768/1024/512）是提交 `M5` 为图节点与 `timed_snapshot` 拷贝抬高的。`.ioc` 的 `FREERTOS.Tasks01` 已同步成与上表相同的栈和优先级（15 个任务逐项一致），CubeMX 重新生成不会再回退。**后续不要把这三个栈往回调**：框架节点与快照整份拷贝都跑在这些任务的栈上。
 
-| 字段（均位于 g_robot_debug.branch） | 含义 |
-| --- | --- |
-| `requested_id` | 唯一演示输入字段，写 0 或 1 |
-| `active_id` | 本帧实际选择 |
-| `switch_count` | 分支编号实际改变时递增，不因重复写同一分支编号递增 |
-| `frame_id` / `output_frame_id` | 有效汇合结果应属于当前帧 |
-| `is_output_valid` / `output_value` | 有效为 1；无效结果置 0 且禁止当作控制量 |
-| `source.execution_count` | 公共输入每帧执行一次 |
-| `merge.execution_count` | 正常时每帧汇合一次 |
-| `branches[0].first/second.execution_count` | A 两级节点执行次数 |
-| `branches[1].first/second.execution_count` | B 两级节点执行次数 |
-| `branches[i].first/second.branch_skip_count` | 未选中的分支编号每级分别计数 |
-| `branches[i].first/second.blocked_count` | 前置条件或运行状态阻塞，不是正常条件跳过 |
-| `branches[i].is_valid` / `value` | 选中分支编号为本帧有效结果；另一条无效 |
+## 3. 三张图
 
-`frame_state` 对应：0=pending、1=executed、2=skipped_branch、3=skipped_state、4=blocked、5=no_data、6=faulted。
-暂停在 Debug 复制中途时字段可能暂时来自不同更新位置，建议在 `update_branch_debug()` 完成后观察一致结果。
+图结构在 `compile()` 中固定：拓扑排序 → 冻结 → 运行期零堆分配。容量由 `Graph/Gimbal/Gimbal_Graph_Config.h` 定义：32 节点 / 64 边 / 4 执行计划。三张图都只声明 1 套计划。
 
-### 框架接口和约束
+### 3.1 Gimbal（ID 1–6）
 
-- `branch_selector(count, initial)` 固定分支编号集合；`request(branch_id)` 只由所属执行器线程调用，不是跨任务原子接口。
-- `graph.set_branch(node, selector, branch_id)` 只设置该图直接节点；嵌套图可继续设置自己的条件，所有祖先条件相与。子图展开后立即冻结，后续 set_branch/add/add_dependency 返回 frozen；应在 compose 内完成局部组装。
-- `graph.add_dependency(before, after)` 是普通依赖；端点可在尚未展开的子图中，是否存在延后到 compile 检查。
-- `graph.add_branch_dependency(end, merge)` 只允许忽略 skipped_branch，不能忽略 faulted、no_data 或未启动节点。汇合至少需要一个真实完成的分支输入。
-- `branch_merge_node<t,N>` 转发 selector 所选输入，检查输入有效且帧号一致。端口绑定和依赖边必须都声明。
-- 分支节点的 `on_skipped(context)` 应使自身输出失效；默认回调为空，以保持旧节点兼容。现有旧端口的保持值语义不变，不能将此改动当作所有旧端口自动防陈旧数据的保证。
-- 所有节点启动时配置一次；分支编号切换不自动重新 start/stop。已提供 on_enter/on_exit/on_plan_changed，业务状态是否重置由节点自己的回调决定。
-- 当前一个执行域、一个 root graph 管理这些对象；禁止同一选择器/节点被多个并行根执行器同时驱动。
-- 每套执行计划必须单独无环；新增多计划能力允许 A→B 与 B→A 属于不同计划，详见下节。
-- 未添加 Linux/ROS/模型运行库，不使用运行期堆分配；编译和实际 1 kHz 时序由用户验证。
+| ID | 节点 | 职责 |
+| ---: | --- | --- |
+| 6 | `Vision_Target_Node` | 读视觉原始帧 → 打装甲板 / 打符判定（需 IMU 与发射状态）→ 发布端口 + `vision_target_mailbox` |
+| 1 | `Gimbal_Input_Node` | 采集 IMU / 遥控 / 裁判 / 执行器反馈；短临界区读 `chassis.pattern`、`chassis.rotate.mode`、pitch 限幅 |
+| 2 | `Gimbal_Target_Node` | 决策：AI 视觉跟踪 / 扫描（装甲板匀速 + 正弦、前哨、符）/ 摇杆 / 摩擦轮边沿切换 |
+| 3 | `Gimbal_State_Node` | 角度状态更新（逐行对应旧 `Gimbal_UpdataAngle`）；`left==2` 时 base 目标 +45°（加弹）；回写 `gimbal.*` 测量量 |
+| 4 | `Gimbal_Control_Node` | 小 yaw 串级、大 yaw 外环（取负 /1000）、pitch 位置环 + 重力前馈；小陀螺时改大 yaw 积分参数 |
+| 5 | `Gimbal_Output_Node` | 提交 `gimbal.*_targetAngle` 与 `shooter.fricOpen/command/idToTrigger` |
 
-验证记录：2026-10-09 用户反馈条件分支板块 Keil 编译通过。分支编号切换、时序与实车行为仍待统一烧录验证。
+依赖边：`Vision_Target → Input → Target → State → Control → Output`。
+`Target` 读的是 `State` 的上一帧结果（`State` 在其之后执行），与旧 C 实现「先决策、后 `Gimbal_UpdataAngle`」一致。
 
+### 3.2 Chassis（ID 11–13）
 
-## 多执行计划切换板块（2026-10-09，用户已确认编译通过）
+| ID | 节点 | 职责 |
+| ---: | --- | --- |
+| 11 | `Chassis_Input_Node` | 遥控 / 执行器反馈 / 视觉 AI 量（`linear_x`、`linear_y`、`angular_z`、`spin_mode`、`align_mode`） |
+| 12 | `Chassis_Mode_Node` | 对应旧 `Chassis_ModeControl`：左拨杆切小陀螺/跟随，右拨杆切 AI/手动，AI 下再由视觉 `spin_mode` 覆盖 |
+| 13 | `Chassis_Kinematics_Node` | 对应旧 `Task_Chassis_Callback`：斜坡、云台相对角换算、旋转控制、四舵轮逆解与最短路径翻转，写 `chassis.motors[].target*` |
 
-本板块改变执行顺序，不改变数据连接或调用业务算法。新增无硬件探针 A/B，复用同一批实例：
+### 3.3 Shooter（ID 21–22）
+
+| ID | 节点 | 职责 |
+| ---: | --- | --- |
+| 21 | `Shooter_Input_Node` | 裁判数据、执行器反馈、当前 `shooter.command/idToTrigger/fricOpen` 快照 |
+| 22 | `Shooter_Logic_Node` | 弹速自适应、摩擦轮目标、堵转反转判定、热量限制、拨弹到位记录 |
+
+三张图共同点：节点只做「读快照 / 算 / 发布」，不直接发 CAN、不碰 DMA、不跨图调用。
+
+## 4. 视觉链路
 
 ```text
-计划 0：A → B
-计划 1：B → A
-```
-
-公共依赖在所有计划生效；计划专属依赖分别参与各自拓扑排序。
-虽然两条专属边的合并图成环，每个单独计划无环，仍是合法配置。
-任何计划包含真实环或引用不存在的节点，整张图都不能启动，不会偷偷退回计划 0 运行。
-
-### 组装 API
-
-```cpp
-// 根组装层声明两套计划；子图使用相同的全局计划编号。
-graph.set_plan_count(2U);
-// 组装期注册节点后声明专属顺序边。
-graph.add_plan_dependency(a, b, 0U);
-graph.add_plan_dependency(b, a, 1U);
-// compile 检查全部计划；仅所属执行任务可以提交切换请求。
-graph.request_plan(1U);
-```
-
-示例省略状态码处理，实际代码检查每次组装结果。
-`request_plan()` 仅在所有计划编译成功后接受合法编号，下一帧开始锁存。
-同一帧内提出的后续请求留给下一帧；非法编号保留原请求。
-`add_dependency()` 和 `add_branch_dependency()` 保持全计划有效；需反转的边必须声明为专属边。
-编译失败的对象保留错误，不支持修补部分展开结果后原地重试，应在重新启动/重新构造时修正组装配置。
-
-### Watch 观测
-
-配置开关 `ROBOT_ENABLE_PLAN_DEMO=1` 默认开启；`ROBOT_MAX_EXECUTION_PLANS=4` 预留四套固定存储，本例实际声明两套。
-在上一板块默认 14 节点/7 边基础上，新增 3 节点/2 条声明边：当前应为 **17 节点、9 条声明边、2 个计划**。
-每个计划实际使用其中 8 条依赖，不同计划的边不能同时用于本帧。
-关闭计划演示后节点/边恢复上一板块，图默认只编译计划 0。
-
-| 字段（g_robot_debug.plan 下） | 预期 |
-| --- | --- |
-| `requested_id` | 可写 0 或 1，其他值拒绝 |
-| `active_id` | 本帧采用计划 |
-| `plan_count` | 默认 2 |
-| `failed_id` | 默认 65535 表示没有具体计划编译失败；结合 init_error 查看 |
-| `switch_count` | 仅实际计划改变时递增 |
-| `rejected_frames` | 每个非法请求帧递增，保留上一合法计划 |
-| `frame_id` | 当前帧号 |
-| `a.execution_count` / `b.execution_count` | 正常运行时每帧各递增一次，切换不清零 |
-| `a.frame_order` / `b.frame_order` | 计划0为A小于B；计划1为B小于A |
-| `a.frame_state` / `b.frame_state` | 正常应为1（executed） |
-
-`frame_order` 是整个根图本帧的实际 process 调用序号，不保证从 A=0 开始；65535 表示该节点本帧未执行。
-本演示是执行顺序探针，不读取对方的旧输出，也不依赖共享可变业务状态。
-上一板块的 `g_robot_debug.branch.requested_id` 仍独立控制 A/B 算术分支，与 `plan.requested_id` 是两个不同控制项。
-
-### 当前边界
-
-- 两套计划包含同一批节点，分支选择依然可跳过不选中的节点。
-- 节点 configure/start 固定按计划0调用一次，stop 按计划0逆序；运行期切换不调用这些函数、不重置 PID/滤波或其他状态。生命周期扩展用 on_enter/on_exit/on_plan_changed，默认为空，业务节点自行决定是否重置状态。
-- 数据端口不自动重连；如两种顺序需要不同数据来源，调用者必须显式适配且检查帧号，不能用同帧环互相等待。
-- 当前仍是单根、单执行任务；请求不是线程安全 API，跨任务入口需要平台交接。
-- 计划切换通知已由后续生命周期板块提供；异步推理取消、运行时任意改图尚未实现。
-- 原始板块用户已确认 Keil 编译通过，资源占用和实际时序仍待实车验证。
-
-2026-10-09 验证更新：用户确认多执行计划板块 Keil 编译通过；运行顺序切换与实际时序待统一烧录验证。
-
-
-## 节点路径生命周期通知板块（2026-10-09，用户已确认编译通过）
-
-本板块为所有节点增加可选生命周期通知，服务于路径切换、PID/滤波状态策略和未来模型上下文：
-
-```text
-帧开始锁存分支编号/计划
-    ↓
-计算本帧激活集合
-    ↓
-旧激活节点逆序 on_exit
-    ↓
-新激活节点顺序 on_enter
-继续激活节点（仅计划变化）on_plan_changed
-    ↓
-执行 process
-```
-
-输入暂时没有新数据、一次 `no_new_data` 或条件分支汇合阻塞，不会导致节点反复退出/进入；激活表示路径和节点状态可运行，不代表输入一定齐备。
-
-- 新增节点默认回调为空，旧业务节点无需修改。
-- 选择分支/计划切换不会自动调用 configure/start/stop。
-- 演示算术节点在 on_enter 清零本次激活执行计数，在 on_exit 使输出失效；框架累计执行次数不清零。
-- 回调中不能重配图、阻塞或修改其他节点生命周期；请求下一分支编号/计划只影响后续帧。
-- stop_all 只允许帧外调用：先通知当前激活节点退出，再按计划0逆序 stop，重复 stop 不重复 exit。
-- 回调自报故障不会回滚已发出的进入通知；当帧不再执行，下一帧按激活状态发出退出。
-
-### Watch 新字段
-
-位于 `g_robot_debug.branch.branches[i].first/second`：
-
-```text
-enter_count
-exit_count
-plan_change_count
-is_active
-```
-
-`first_runs_since_enter` 和 `second_runs_since_enter` 是演示节点每次 on_enter 清零的业务计数；它们与框架累计 `execution_count` 分开。
-
-2026-10-09 验证更新：用户确认生命周期通知板块 Keil 编译通过；通知行为与时序待后续统一实车验证。
-
-
-## 异步最新值邮箱板块（2026-10-09，原始板块用户已确认编译通过）
-
-本阶段为未来 ROS 2 订阅、视觉结果和模型推理结果预留“异步最新值”边界，同时只在 STM32 上使用一个无硬件演示：
-
-```text
-snapshot_producer_node（每10帧发布）
-        ↓ 最新值邮箱 + STM32 短临界区
-snapshot_consumer_node（每帧读取）
+USB CDC 中断（OTG_HS，优先级 5）
+  └ VisionLink_OnUsbReceive()   只 memcpy 进 SPSC 环形缓冲（1024 B）
+      空间不足则整包丢弃并计数；__DMB 后推进写索引；vTaskNotifyGiveFromISR 唤醒 VisionTask
         ↓
-g_robot_debug.snapshot
+VisionTask（1 kHz）
+  └ VisionLink_Poll()           64 B 分块取出 → 消帧器（跨 USB 包组帧）
+      校验 0xA5 帧头 / 0x5A 帧尾 → decode → vision_frame_mailbox().publish()
+        ↓
+Gimbal 图 · Vision_Target_Node
+      仅在发布序号变化时重算（其余帧保持上次结果，等价于旧的「每来一帧视觉数据算一次」）
+      → 端口给 Gimbal_Input_Node；同时 publish 到 vision_target_mailbox()
+        ↓
+VisionTask · Vision_DataTransmit()   取 is_valid 作为回传帧的 see_enemy
+Chassis_Input_Node / B2B_Transmit    直接读原始帧快照（AI 速度、哨兵自主指令）
 ```
 
-它和 `frame_signal<t>` 的语义不同：`frame_signal` 用于同一个插件图执行帧内的同帧数据；邮箱用于外部回调/任务与图任务之间的最新样本交接。邮箱不会排队所有历史消息，也不会因为读取刷新样本序号或采样时间。
+- 帧格式见 [视觉通信协议](../doc/视觉通信协议.md)：接收 88 B（`0xA5`…`0x5A`），发送 49 B（`0x5A`…`0xA5`）。无 CRC，只有帧头/帧尾。
+- 邮箱语义是「最新值覆盖写」而非队列：消费者可能跳过中间帧，但一定拿到当前最新值；`sequence` 用来判断有没有新帧。
+- TTL：`k_vision_link_ttl_us = 100000`（100 ms）。`evaluate_snapshot(copy, now_us, ttl)` 是纯函数，必须在 `copy_to()` 之后、用同一份副本判断。
 
-### Watch 观测
+## 5. 输入与跨域同步
 
-`ROBOT_ENABLE_SNAPSHOT_DEMO=1` 时，默认节点数从上一阶段的 17 增加到 20，边从 9 增加到 10。`g_robot_debug.snapshot.publish_enabled` 可写：
+`Io/Inputs/RobotInputs.cpp` 把 C 侧全局量整份拷成 POD 快照，临界区内只做赋值、不调 HAL、不阻塞：
 
-```text
-1：生产节点每10帧发布一个新样本
-0：暂停发布；消费者继续每帧读取最新旧样本
-```
+| 函数 | 读的全局量 | TTL 常量 |
+| --- | --- | --- |
+| `read_imu` | `INS.*` | `k_imu_ttl_us = 20000` |
+| `read_rc` | `rcInfo.*` | `k_rc_ttl_us = 100000` |
+| `read_judge` | `USER_JudgeData.*`、`JUDGE_IsValid()` | `k_judge_ttl_us = 100000` |
+| `read_actuator_feedback` | `shooter.*Motor`、`gimbal.*Motor`、`chassis.motors[]`、`FEEDBACK`、`STOPFLAG` | — |
 
-| 字段 | 含义 |
+写方向（图 → C 全局）目前仍是隐式的，不出现在图依赖上：
+
+| 写者 | 写的量 | 读方 |
+| --- | --- | --- |
+| `Gimbal_State_Node` | `gimbal.{top_yaw,base_yaw,pitch}` 的角度与 `totalAngle` | `Vision_DataTransmit` |
+| `Gimbal_Control_Node` | `gimbal.*.imuPID.output`、`gimbal.base_yaw.imuPID.outer.output` | `MotoApp`（CAN）、`B2B_Transmit`（25–28 字节） |
+| `Gimbal_Output_Node` | `gimbal.*_targetAngle`、`shooter.fricOpen/command/idToTrigger` | Shooter 图、`MotoApp` |
+| `Chassis_Kinematics_Node` | `chassis.motors[].targetTurnAngle/targetDriveSpeed` | `B2B_Transmit`（1–24 字节） |
+| `Shooter_Logic_Node` | `shooter.fricMotor[].targetSpeed`、`triggerMotor.targetAngle`、`command` | `MotoApp`（CAN） |
+
+这些「图 → 全局 → 另一任务」的边没有帧号或版本号校验，正确性依赖各任务周期的相对快慢。要收紧，得把读方也改成从端口/邮箱取。
+
+## 6. 板间通信（USART2，2 Mbaud，1 kHz）
+
+上板 → 下板 64 B（帧头 `0xAA`、帧尾 `0xFE`）：
+
+| 字节 | 内容 |
 | --- | --- |
-| `frame_id` | 最近消费者帧 |
-| `sequence` | 只在生产者发布时递增；暂停后保持 |
-| `read_count` | 消费节点读取次数 |
-| `age_us` | 当前时钟减原始采样时刻 |
-| `status` | 0=empty，1=fresh，2=stale，3=clock_mismatch |
-| `publish_enabled` | Watch 发布开关 |
+| 1–16 | 四个舵电机角度误差 `targetTurnAngle - now_angle`，float×4 |
+| 17–24 | 四个驱动轮目标转速（RPM），int16×4 |
+| 25–28 | 大 yaw 目标速度 `-imuPID.outer.output / 1000`，float |
+| 29–35 | `USER_SentryCmd_t` 哨兵自主指令（取自视觉帧快照） |
+| 36–61 | 当前未写入，接收方不应解释 |
+| 62 | `STOPFLAG` |
+| 63 | 帧尾 `0xFE` |
 
-启动后第一次发布前状态为 empty；发布后按 TTL=5000 us 判断 fresh/stale。暂停发布后 sequence 不再增长、age_us 继续增长，超过 TTL 后 status=stale。读取旧值不会把它当作新样本。
+下板 → 上板 64 B（帧头 `0xAB`、帧尾 `0xFD`）：1–16 舵角、17–24 轮速、25–28 大 yaw 角度、29–58 裁判数据、62 `FEEDBACK`。
 
-STM32 后端只在复制固定快照时保存/禁用/恢复 PRIMASK，并使用内存屏障；不保护 DMA、NMI、HardFault 或多核访问。真实跨任务接口仍需由平台调用者选定单一同步后端和时钟域。
+接收链路：DMA（`DMA_NORMAL`）+ IDLE 中断 → `HAL_UARTEx_RxEventCallback` 调 `B2B_Receive()`，并在 `USART2_IRQHandler` 末尾无条件重新 arm。
 
-该板块不实现 ROS 2、ONNX、RKNN、事件队列或模型请求取消，也不修改现有业务和硬件输出。
+已知脆弱点（记录现状，未修改）：发送复用同一个 `usart2TxBuf` 调 `HAL_UART_Transmit_DMA`，未检查上一次传输是否完成；接收在中断里直接读 `usart2RxBuf[0]/[63]`，不看长度。
 
-2026-10-09 20:11 用户已确认原始邮箱板块编译通过。后续修正中，消费者只调用一次 `copy_to()`，然后在取得当前时间后调用 `evaluate_snapshot(snapshot, now, ttl)`；序号、数值与有效期属于同一份稳定副本。兼容的 `mailbox.status()` 仍可用于只关心状态的调用者，不能把它与另一次读取的数值拼成同一份样本。
+## 7. 框架能力与未启用项
 
-## 通用数值对比与性能修正（2026-10-09）
+`Framework/PluginGraph.cpp` 已实现：
 
-新增 `Framework/OutputComparison.hpp`，用于比较两份已经计算完的通用数值结果。只有输入序号、采样时间、状态版本及计算步数都相同，才计算 `candidate - reference` 和最大绝对差。缺失、未对齐、非法容差和非有限值与真正的结果差异分开表示。
+- 节点注册、依赖边、拓扑排序、编译后冻结；
+- 多执行计划（`ROBOT_MAX_EXECUTION_PLANS = 4`），每套计划独立排序；
+- 条件分支 `branch_selector` + `set_branch`，汇合边 `add_branch_dependency`；
+- 生命周期通知 `on_enter / on_exit / on_plan_changed`（默认空实现，旧节点无需改动）；
+- 帧级 profiler（`Platform/STM32/Stm32Profiler`）。
 
-接口是纯函数，不调用业务函数、不借用对方控制状态，也不发送硬件命令。当前已接入 g_robot_debug.comparison 的合成输入演示，尚未接入真实控制输出，不能据此宣称已获得两套完整程序的电机输出对比。包含该头文件的新翻译单元必须使用 `-fno-fast-math`；ARMClang 默认的有限数假设会破坏 NaN/Inf 诊断，因此头文件对此模式明确报错，旧业务编译选项未改动。
+但三张图只用到了单计划 + 无条件分支：`set_plan_count(1U)`，而 `set_branch` / `add_plan_dependency` / `add_branch_dependency` / `request_plan` / `branch_merge_node` 在业务代码里一次都没被调用。这些能力属于「已实现、未接线」，不要当成在用。
 
-`plugin_graph` 已恢复在实际 `process()` 调用前后执行 `begin_node/end_node`。条件跳过、依赖阻塞不产生节点执行耗时；生命周期回调不属于该节点 `process` 耗时。帧级统计范围保持原样，包含图调度与 Debug 汇总。当前 `last_node_duration_us/max_node_duration_us` 仍是所有节点共用的最近值/最大值，不是逐节点统计表。
+## 8. 构建
 
-`checks/FrameworkContractChecks.cpp` 使用 ARMClang 编译期断言验证快照 TTL、时间回拨、比较身份、容差及非有限/溢出边界；不进入固件、不引入主机仿真。受影响的新框架翻译单元也完成目标编译器语法检查。以上不是固件全量链接或实车通过的结论。
+两个独立工程，源文件清单人工保持一致：同一批 31 个 `.cpp`，且都排除 §9 里标注「不编译」的三个文件。
 
-接口用法、检查命令与交付边界见 [通用快照与结果对比接口](../doc/通用快照与结果对比接口-2026-10-09.md)。
+- **Keil MDK（首选）**：`MDK-ARM/Sentry_H7_Upper_CMake.uvprojx`，ARMCLANG V6.24。输出目录 `MDK-ARM/Sentry_H7_Upper_CMake/` 已加入 `.gitignore`。
+- **CMake + Ninja**：需 `arm-none-eabi-gcc` 在 `PATH`（见 `cmake/gcc-arm-none-eabi.cmake`），`cmake --preset Debug`，产物在 `build/Debug/`（已忽略）。
+- **clangd**：读 `build/Debug/compile_commands.json`（见 `.clangd`），因此改代码前需先用 CMake 配置过一次。
 
-## 独立状态算术比较演示（2026-10-09）
+最近一次 Keil 全量重建：`0 Error(s), 0 Warning(s)`；固件 `Code=104196  RO-data=2656  RW-data=1664  ZI-data=165320`。
 
-ROBOT_ENABLE_COMPARISON_DEMO=1 时新增 ID 100 容器、101 输入、102 参考、103 候选、104 比较，共 5 个节点和 4 条公共依赖。默认整图为 **25 节点、14 条声明边、2 个计划**，每计划使用 13 条边。之前各阶段的节点数是历史记录。
+## 9. 已弃用 / 死代码
 
-两个累计器独占各自状态，只读取同一个每帧生成的整数输入，不读取或调用旧业务。调试入口为 g_robot_debug.comparison：
+| 对象 | 状态 | 说明 |
+| --- | --- | --- |
+| `RobotApplication.{hpp,cpp}` | **不编译** | 原「单一组合根」；CMake 用 `list(REMOVE_ITEM)` 排除，Keil 工程也未收录 |
+| `app_cpp_entry.{h,cpp}` | **不编译** | 原 C↔C++ 三函数桥接；`main.c` 已不再调用 `AppCpp_Initialize` |
+| `ControlExecutorTask.cpp` | **不编译** | 原单控制执行器（一个 1 kHz 任务驱动整图） |
+| `Framework/ComparisonTypes.hpp`、`Framework/OutputComparison.hpp` | 零引用 | 通用结果对比接口，无任何包含者 |
+| `Framework/BranchMergeNode.hpp` | 零引用 | `branch_merge_node` 模板从未实例化 |
+| `SuperCapTask` / `OS_SuperCapCallback` | 空实现 | 仍是 `__weak` 桩 |
+| `App/*App.cpp` 的 `Task_Gimbal_Callback`、`Task_Chassis_Callback`、`Task_Shooter_Callback` | 保留、不调用 | 迁移对照用；`vision_receive` / `vision_target` 全局只为它们保留定义 |
 
-- 正常：status=4（equal），is_difference_valid=1，差值为 0。
-- candidate_bias=3：status=5（different），difference[0]=3；清零偏差后恢复。
-- is_pause_candidate=1：保留旧候选结果，status=1（unaligned）；恢复不补算漏帧，需共同重置对齐。
-- reset_candidate_request 改为不同数值：只重置候选，epoch 不同；reset_all_request 改值：分别重置两实例。
-- reset_all_request 同帧优先；共同重置时 is_pause_candidate 应为 0，偏差为 0 才预期 equal。
-- input_value / candidate_bias 合法范围 [-1000,1000]，非法值保留上次参数，applied_* 和 rejected_frames 可观察。
-- 重置不清除历史计数与 historical_max_abs_difference；missing/unaligned 的零差值没有比较意义。
+注意：`RobotApplication` 不在任何编译单元里，所以它注释中提到的 `g_robot_debug` 与 `ROBOT_ENABLE_*` 宏**都不存在于当前构建**。它 `#include` 的 `Gimbal_Graph_Config.h` 实际只定义三个容量宏（`ROBOT_MAX_PLUGIN_NODES` / `ROBOT_MAX_PLUGIN_EDGES` / `ROBOT_MAX_EXECUTION_PLANS`），没有裁剪开关。
 
-只有 comparison_demo_node.cpp 包含严格浮点比较算法，CMake/Keil 都为该文件设置 -fno-fast-math。ComparisonTypes.hpp 只定义数据，使应用和其他头文件保持原编译选项。
+## 10. 待办
 
-本次 29 条目标编译期断言及受影响应用文件语法检查通过；独立只读审查无待修项。没有运行 UV4 全量构建、完整固件链接或本版本上板实测。逐项 Watch 步骤、当前等待事项及后续计划见 [通用快照与结果对比接口](../doc/通用快照与结果对比接口-2026-10-09.md)。
+1. 高频图任务的优先级与周期约束未定义，抖动未评估（见 §2）。
+2. 「图 → C 全局 → 另一任务」的隐式边缺少帧号校验（见 §5）。
+3. `B2B_Transmit` 的 DMA 缓冲复用未做忙检查（见 §6）。
+4. §9 的死代码是否清理待定；`BranchMergeNode` / `OutputComparison` 要么接线要么删除，否则容易误判能力边界。
+5. `Framework/PluginGraph.hpp` 第 46 行注释说容量宏来自 `Config/robot_build_config.h`，该路径不存在（实际在 `Graph/Gimbal/Gimbal_Graph_Config.h`），属注释错引，待随源码修订一并更正。
