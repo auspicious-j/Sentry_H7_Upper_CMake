@@ -800,6 +800,16 @@
               <FilePath>..\ApplicationCpp\Graph\Gimbal\Gimbal_Graph.cpp</FilePath>
             </File>
             <File>
+              <FileName>GimbalControlMailbox.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\ApplicationCpp\Graph\Gimbal\GimbalControlMailbox.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>GimbalStateMailbox.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\ApplicationCpp\Graph\Gimbal\GimbalStateMailbox.cpp</FilePath>
+            </File>
+            <File>
               <FileName>Gimbal_Control_Node.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\ApplicationCpp\Graph\Gimbal\Control_Node\Gimbal_Control_Node.cpp</FilePath>
@@ -840,6 +850,16 @@
               <FilePath>..\ApplicationCpp\Graph\Chassis\Chassis_Graph.cpp</FilePath>
             </File>
             <File>
+              <FileName>ChassisModeMailbox.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\ApplicationCpp\Graph\Chassis\ChassisModeMailbox.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>ChassisOutputMailbox.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\ApplicationCpp\Graph\Chassis\ChassisOutputMailbox.cpp</FilePath>
+            </File>
+            <File>
               <FileName>Chassis_Input_Node.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\ApplicationCpp\Graph\Chassis\Input_Node\Chassis_Input_Node.cpp</FilePath>
@@ -863,6 +883,11 @@
               <FileName>Shooter_Graph.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\ApplicationCpp\Graph\Shooter\Shooter_Graph.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>ShooterOutputMailbox.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\ApplicationCpp\Graph\Shooter\ShooterOutputMailbox.cpp</FilePath>
             </File>
             <File>
               <FileName>Shooter_Input_Node.cpp</FileName>

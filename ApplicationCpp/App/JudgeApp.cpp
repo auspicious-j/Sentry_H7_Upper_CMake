@@ -441,17 +441,6 @@ void Judge_update()
 }
 
 /**********************freertos任务*********************************/
-// 裁判系统发送任务回调
-void Task_Judge_Callback()
-{
-//    if (Queue_IsEmpty(&judgeQueue))
-//	    return;
-//	// 取队头的消息发送
-//    JudgeTxFrame *frame = (JudgeTxFrame *)Queue_Dequeue(&judgeQueue);
-////    USART1_DMA_Send((uint8_t *)frame->data, frame->frameLength);
-//    HAL_UART_Transmit_DMA(&huart1,(uint8_t*)frame->data,frame->frameLength);
-}
-
 
 #ifdef EN_JUDGE_TASK
 extern "C" void OS_JudgeCallback(void const *argument)
@@ -461,7 +450,6 @@ extern "C" void OS_JudgeCallback(void const *argument)
     for (;;)
 	{
 	    Judge_update();
-//	    Task_Judge_Callback();
 	    osDelay(100);
 	}
 }

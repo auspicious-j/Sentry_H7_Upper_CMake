@@ -23,12 +23,10 @@ struct shooter_inputs {
     std::uint64_t sampled_at_us;
 };
 
-// 逻辑节点处理后的目标（同时已写入 C 侧 shooter 全局）。
+// 逻辑节点处理后的目标；跨任务通过 shooter_output_mailbox() 交给 Motor 任务。
 struct shooter_output {
     std::int16_t fric_target_speed[2];
     std::int32_t trigger_target_angle;
-    std::uint8_t command;
-    std::int8_t triggering_id;
     std::uint64_t sampled_at_us;
 };
 

@@ -15,7 +15,6 @@ robot::framework::process_result Chassis_Input_Node::process(robot::framework::f
     for (std::uint8_t index = 0U; index < 4U; ++index)
     {
         inputs.wheel_turn_angle_deg[index] = feedback.wheel_turn_angle_deg[index];
-        inputs.wheel_speed[index] = feedback.wheel_speed[index];
     }
 
     // 视觉 AI 指令：直接取原始帧快照（无新帧时保留上一次的值，与旧全局语义一致）。

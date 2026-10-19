@@ -1,24 +1,14 @@
 #include "Gimbal_Input_Node.hpp"
 
-#include "InterruptSnapshotLock.hpp"
+#include "ChassisModeMailbox.hpp"
 #include "VisionLink.hpp"
 
 extern "C"
 {
-#include "Chassis.h"
-#include "Gimbal.h"
-#include "Shooter.h"
+#include "Shooter.h" // IDLE
 }
 
 namespace robot::Gimbal {
-
-namespace {
-
-// 迁移期仍需读取的 C 侧状态（底盘模式、云台限幅）由对应任务写入，
-// 这里用短临界区做整份拷贝。视觉目标已改由 Vision_Target_Node 端口提供。
-robot::platform::stm32::interrupt_snapshot_lock g_legacy_lock{};
-
-} // namespace
 
 robot::framework::process_result Gimbal_Input_Node::process(robot::framework::frame_context& context)
 {
@@ -41,11 +31,14 @@ robot::framework::process_result Gimbal_Input_Node::process(robot::framework::fr
     robot::framework::timed_snapshot<robot::io::vision::vision_frame_snapshot> vision_copy{};
     robot::io::vision::vision_frame_mailbox().copy_to(vision_copy);
 
+    // 底盘模式：跨任务，从邮箱取最新值（可能是上一个 Chassis 周期算出的）。
+    robot::framework::timed_snapshot<robot::Chassis::chassis_mode> chassis_mode_copy{};
+    robot::Chassis::chassis_mode_mailbox().copy_to(chassis_mode_copy);
+
     gimbal_inputs inputs{};
     inputs.imu = robot::io::inputs::read_imu(context.timestamp_us);
     inputs.rc = robot::io::inputs::read_rc(context.timestamp_us);
     inputs.feedback = robot::io::inputs::read_actuator_feedback(context.timestamp_us);
-    inputs.judge = robot::io::inputs::read_judge(context.timestamp_us);
 
     inputs.vision_valid = target.is_valid;
     inputs.vision_base_yaw_deg = target.base_yaw;
@@ -58,14 +51,11 @@ robot::framework::process_result Gimbal_Input_Node::process(robot::framework::fr
     inputs.ai_look_yaw_deg = vision_copy.value.look_yaw;
     inputs.ai_look_pitch_deg = vision_copy.value.look_pitch;
 
-    {
-        const robot::framework::snapshot_lock_guard guard(g_legacy_lock);
-        inputs.chassis_pattern = static_cast<std::uint8_t>(chassis.pattern);
-        inputs.chassis_rotate_mode = static_cast<std::uint8_t>(chassis.rotate.mode);
+    inputs.chassis_pattern = chassis_mode_copy.value.pattern;
+    inputs.chassis_rotate_mode = chassis_mode_copy.value.rotate_mode;
 
-        inputs.pitch_min_deg = gimbal.pitch.pitchMin;
-        inputs.pitch_max_deg = gimbal.pitch.pitchMax;
-    }
+    inputs.pitch_min_deg = pitch_min_deg_;
+    inputs.pitch_max_deg = pitch_max_deg_;
 
     inputs.sampled_at_us = context.timestamp_us;
     output_.publish(context.frame_id, inputs);

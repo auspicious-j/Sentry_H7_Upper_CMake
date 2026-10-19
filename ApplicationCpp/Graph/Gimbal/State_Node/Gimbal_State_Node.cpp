@@ -1,5 +1,7 @@
 #include "Gimbal_State_Node.hpp"
 
+#include "GimbalStateMailbox.hpp"
+
 extern "C"
 {
 #include "Chassis.h"
@@ -28,10 +30,7 @@ robot::framework::process_result Gimbal_State_Node::process(robot::framework::fr
     // —— 以下计算逐行对应旧 Gimbal_UpdataAngle() ——
     const float top_angle_deg = inputs.imu.yaw_deg;
     const float top_gyro_z = inputs.imu.gyro_z;
-    const float base_angle_deg =
-        top_angle_deg - (static_cast<float>(inputs.feedback.top_yaw_angle) - TOP_YAW_OFFSET) / 8192.0f * 360.0f;
     const float pitch_angle_deg = inputs.imu.pitch_deg;
-    const float pitch_gyro_x = -inputs.imu.gyro_x;
 
     top_total_deg_ += ModularDegreeTowards(top_angle_deg - last_top_angle_deg_, 0.0f);
     const float top_target_deg = ModularDegreeTowards(targets.top_yaw_target_deg, top_total_deg_);
@@ -45,23 +44,11 @@ robot::framework::process_result Gimbal_State_Node::process(robot::framework::fr
         base_target_deg += 45.0f; // 加弹动作
     }
 
-    // 写回 C 侧测量量：Vision_DataTransmit 还在读 top_yaw.totalAngle 等字段。
-    gimbal.top_yaw.angle = top_angle_deg;
-    gimbal.top_yaw.gyro = top_gyro_z;
-    gimbal.top_yaw.totalAngle = top_total_deg_;
-    gimbal.top_yaw.lastAngle = last_top_angle_deg_;
-    gimbal.base_yaw.angle = base_angle_deg;
-    gimbal.base_yaw.totalAngle = base_total_deg_;
-    gimbal.pitch.angle = pitch_angle_deg;
-    gimbal.pitch.gyro = pitch_gyro_x;
-
     gimbal_state state{};
-    state.top_yaw_angle_deg = top_angle_deg;
     state.top_yaw_total_deg = top_total_deg_;
     state.base_yaw_total_deg = base_total_deg_;
     state.pitch_angle_deg = pitch_angle_deg;
     state.top_gyro_z = top_gyro_z;
-    state.pitch_gyro_x = pitch_gyro_x;
 
     state.base_yaw_target_deg = base_target_deg;
     state.top_yaw_target_deg = top_target_deg;
@@ -70,8 +57,10 @@ robot::framework::process_result Gimbal_State_Node::process(robot::framework::fr
     state.fric_open = targets.fric_open;
     state.shooter_command = targets.shooter_command;
     state.id_to_trigger = targets.id_to_trigger;
-    state.vision_control_active = targets.vision_control_active;
     state.sampled_at_us = context.timestamp_us;
+
+    // 测量量只通过邮箱交给 Vision 任务，不再写 C 侧 gimbal.*。
+    gimbal_state_mailbox().publish(state, context.timestamp_us);
 
     output_.publish(context.frame_id, state);
     return robot::framework::process_result::ok;

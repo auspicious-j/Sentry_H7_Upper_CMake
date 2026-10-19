@@ -43,17 +43,10 @@ typedef struct DJIMOTOR
 
     int16_t lastAngle; // 记录上一次得到的角度
 
-    int16_t targetSpeed; // 目标速度
-    int32_t targetAngle; // 目标角度(编码器值)
-	
     int32_t totalAngle; // 累计转过的编码器值
-	
-    int16_t targetCurrent;
 
-    uint8_t ERRORFLAG;
-	
     PID speedPID;		 // 速度pid(单级)
-    CascadePID anglePID; // 角度pid，串级	
+    CascadePID anglePID; // 角度pid，串级
 } DJI_Motor_t;
 
 typedef struct
@@ -76,29 +69,23 @@ typedef struct
 
 typedef struct
 {
-	    uint16_t mode;          // 电机控制模式
-        motor_fbpara_t para;  	// 电机的反馈信息结构体
-	
-	    float totalAngle;				//电机旋转总角度 单位°
-	    float lastAngle;				//电机上一时刻角度 单位°
-	    float nowAngle;					//电机当前角度 单位°
-	    float targetTurnAngle;  //电机目标旋转角度  单位°
-	
-	    PID speedPID;					  // 速度pid(单级)
-	    CascadePID anglePID;	  // 角度pid(串级)
-	
+    uint16_t mode;         // 电机控制模式
+    motor_fbpara_t para;   // 电机的反馈信息结构体
+
+    float totalAngle;      // 电机旋转总角度 单位°
+    float lastAngle;       // 电机上一时刻角度 单位°
+    float nowAngle;        // 电机当前角度 单位°
+    float targetTurnAngle; // 电机目标旋转角度 单位°
+
+    PID speedPID;          // 速度pid(单级)
+    CascadePID anglePID;   // 角度pid(串级)
 } DM_motor_t;
 
+// 底盘舵轮：只有硬件反馈。目标角/目标转速由 Kinematics 节点经邮箱交付，
+// 舵角零点标定也归 Kinematics 节点私有。
 typedef struct
 {
-    float TurnOffset;  					//舵电机校准值		    单位为°
-    float now_angle;					//舵电机校准后当前角度    单位为°
-    float TurnAngle;					//舵电机当前实际角度    单位为°
-    float lastAngle;					//舵电机当前多圈角度    单位为°
-    float totalAngle;					//舵电机总角度(多圈)     单位为°
-    float targetTurnAngle;				//需要旋转的角度	    单位为°
-  
-    int32_t targetDriveSpeed;			//轮电机转速
+    float TurnAngle;       // 舵电机当前实际角度 单位°
     int16_t now_Speed;
 } Double_motor_t;
 
@@ -118,8 +105,6 @@ void mit_ctrl(FDCAN_HandleTypeDef* hcan, uint16_t motor_id, float pos, float vel
 void USER_CAN_SetMotorCurrent(FDCAN_HandleTypeDef* hfdcan,int16_t StdId,int16_t iq1, int16_t iq2, int16_t iq3, int16_t iq4);
 void Motor_StartCalcAngle(DJI_Motor_t *motor);
 void Motor_CalcAngle(DJI_Motor_t *motor);
-void Motor_StartCalcAngle_J4310(Double_motor_t *motor);
-void Motor_CalcAngle_J4310(Double_motor_t *motor);
 void clear_err(FDCAN_HandleTypeDef* hfdcan, uint16_t motor_id, uint16_t mode_id);
 
 #ifdef __cplusplus

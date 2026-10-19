@@ -86,7 +86,6 @@ robot::framework::process_result Gimbal_Target_Node::process(robot::framework::f
     targets.fric_open = fric_open_;
     targets.shooter_command = shooter_command_;
     targets.id_to_trigger = id_to_trigger_;
-    targets.vision_control_active = vision_control_active;
     targets.sampled_at_us = context.timestamp_us;
 
     output_.publish(context.frame_id, targets);

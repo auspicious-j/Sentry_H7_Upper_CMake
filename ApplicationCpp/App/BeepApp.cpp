@@ -64,8 +64,8 @@ void Beep_Block_PlayAll()
     Beep_Play(T_None);
 }
 
-//蜂鸣器任务回调
-void Task_Beep_Callback()
+//蜂鸣器任务回调（只被本文件的 OS_BeepCallback 调用）
+static void Task_Beep_Callback()
 {
     if(Queue_IsEmpty(&noteQueue))//没有音符要播放则停止任务
 	{

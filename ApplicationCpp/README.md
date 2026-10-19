@@ -29,7 +29,7 @@ C 侧全局量 + CAN / UART / USB   由原有 C 代码继续下发，不经过�
 | `Platform/STM32/` | DWT 微秒时钟、profiler、PRIMASK 临界区 | 否 |
 | `Comms/` | 遥控器接收、板间通信（原 `UserMiddlewares`） | 是 |
 | `Drivers/` | 电机驱动、设备检测（原 `UserMiddlewares`） | 是 |
-| `App/` | 各任务入口 `OS_*Callback` + C 侧初始化 `*_Init` | 有（仅初始化） |
+| `App/` | 各任务入口 `OS_*Callback` + C 侧结构体定义 | 否（初始化已移入各节点 `configure()`） |
 
 ## 2. 任务与周期
 
@@ -67,11 +67,11 @@ C 侧全局量 + CAN / UART / USB   由原有 C 代码继续下发，不经过�
 | ID | 节点 | 职责 |
 | ---: | --- | --- |
 | 6 | `Vision_Target_Node` | 读视觉原始帧 → 打装甲板 / 打符判定（需 IMU 与发射状态）→ 发布端口 + `vision_target_mailbox` |
-| 1 | `Gimbal_Input_Node` | 采集 IMU / 遥控 / 裁判 / 执行器反馈；短临界区读 `chassis.pattern`、`chassis.rotate.mode`、pitch 限幅 |
+| 1 | `Gimbal_Input_Node` | 采集 IMU / 遥控 / 裁判 / 执行器反馈；底盘模式从 `chassis_mode_mailbox()` 取，pitch 限幅用短临界区读 |
 | 2 | `Gimbal_Target_Node` | 决策：AI 视觉跟踪 / 扫描（装甲板匀速 + 正弦、前哨、符）/ 摇杆 / 摩擦轮边沿切换 |
-| 3 | `Gimbal_State_Node` | 角度状态更新（逐行对应旧 `Gimbal_UpdataAngle`）；`left==2` 时 base 目标 +45°（加弹）；回写 `gimbal.*` 测量量 |
+| 3 | `Gimbal_State_Node` | 角度状态更新（逐行对应旧 `Gimbal_UpdataAngle`）；`left==2` 时 base 目标 +45°（加弹）；测量量发布到 `gimbal_state_mailbox()` |
 | 4 | `Gimbal_Control_Node` | 小 yaw 串级、大 yaw 外环（取负 /1000）、pitch 位置环 + 重力前馈；小陀螺时改大 yaw 积分参数 |
-| 5 | `Gimbal_Output_Node` | 提交 `gimbal.*_targetAngle` 与 `shooter.fricOpen/command/idToTrigger` |
+| 5 | `Gimbal_Output_Node` | 提交 `shooter.fricOpen/command/idToTrigger`（`gimbal.*.targetAngle` 已无读者，写入已删除） |
 
 依赖边：`Vision_Target → Input → Target → State → Control → Output`。
 `Target` 读的是 `State` 的上一帧结果（`State` 在其之后执行），与旧 C 实现「先决策、后 `Gimbal_UpdataAngle`」一致。
@@ -82,7 +82,7 @@ C 侧全局量 + CAN / UART / USB   由原有 C 代码继续下发，不经过�
 | ---: | --- | --- |
 | 11 | `Chassis_Input_Node` | 遥控 / 执行器反馈 / 视觉 AI 量（`linear_x`、`linear_y`、`angular_z`、`spin_mode`、`align_mode`） |
 | 12 | `Chassis_Mode_Node` | 对应旧 `Chassis_ModeControl`：左拨杆切小陀螺/跟随，右拨杆切 AI/手动，AI 下再由视觉 `spin_mode` 覆盖 |
-| 13 | `Chassis_Kinematics_Node` | 对应旧 `Task_Chassis_Callback`：斜坡、云台相对角换算、旋转控制、四舵轮逆解与最短路径翻转，写 `chassis.motors[].target*` |
+| 13 | `Chassis_Kinematics_Node` | 对应旧 `Task_Chassis_Callback`：斜坡、云台相对角换算、旋转控制、四舵轮逆解与最短路径翻转，结果发布到 `chassis_output_mailbox()` |
 
 ### 3.3 Shooter（ID 21–22）
 
@@ -127,17 +127,23 @@ Chassis_Input_Node / B2B_Transmit    直接读原始帧快照（AI 速度、哨�
 | `read_judge` | `USER_JudgeData.*`、`JUDGE_IsValid()` | `k_judge_ttl_us = 100000` |
 | `read_actuator_feedback` | `shooter.*Motor`、`gimbal.*Motor`、`chassis.motors[]`、`FEEDBACK`、`STOPFLAG` | — |
 
-写方向（图 → C 全局）目前仍是隐式的，不出现在图依赖上：
+写方向（图 → C 全局）只剩一条仍是隐式的：
 
 | 写者 | 写的量 | 读方 |
 | --- | --- | --- |
-| `Gimbal_State_Node` | `gimbal.{top_yaw,base_yaw,pitch}` 的角度与 `totalAngle` | `Vision_DataTransmit` |
-| `Gimbal_Control_Node` | `gimbal.*.imuPID.output`、`gimbal.base_yaw.imuPID.outer.output` | `MotoApp`（CAN）、`B2B_Transmit`（25–28 字节） |
-| `Gimbal_Output_Node` | `gimbal.*_targetAngle`、`shooter.fricOpen/command/idToTrigger` | Shooter 图、`MotoApp` |
-| `Chassis_Kinematics_Node` | `chassis.motors[].targetTurnAngle/targetDriveSpeed` | `B2B_Transmit`（1–24 字节） |
-| `Shooter_Logic_Node` | `shooter.fricMotor[].targetSpeed`、`triggerMotor.targetAngle`、`command` | `MotoApp`（CAN） |
+| `Gimbal_Output_Node` | `shooter.fricOpen/command/idToTrigger` | `Shooter_Input_Node` |
 
-这些「图 → 全局 → 另一任务」的边没有帧号或版本号校验，正确性依赖各任务周期的相对快慢。要收紧，得把读方也改成从端口/邮箱取。
+其余跨任务输出已改成显式邮箱：
+
+| 数据 | 发布者 | 邮箱 | 消费者 |
+| --- | --- | --- | --- |
+| PID 输出 | `Gimbal_Control_Node` | `gimbal_control_mailbox()` | `MotoApp`、`B2B_Transmit` |
+| 云台测量量 | `Gimbal_State_Node` | `gimbal_state_mailbox()` | `Vision_DataTransmit` |
+| 底盘模式 | `Chassis_Mode_Node` | `chassis_mode_mailbox()` | `Gimbal_Input_Node` |
+| 四舵轮输出 | `Chassis_Kinematics_Node` | `chassis_output_mailbox()` | `B2B_Transmit` |
+| 发射目标量 | `Shooter_Logic_Node` | `shooter_output_mailbox()` | `MotoApp` |
+
+邮箱语义是最新值覆盖，因此只适合状态量；事件量（命中时刻、单次触发）仍走全局，见 §11。
 
 ## 6. 板间通信（USART2，2 Mbaud，1 kHz）
 
@@ -147,7 +153,7 @@ Chassis_Input_Node / B2B_Transmit    直接读原始帧快照（AI 速度、哨�
 | --- | --- |
 | 1–16 | 四个舵电机角度误差 `targetTurnAngle - now_angle`，float×4 |
 | 17–24 | 四个驱动轮目标转速（RPM），int16×4 |
-| 25–28 | 大 yaw 目标速度 `-imuPID.outer.output / 1000`，float |
+| 25–28 | 大 yaw 目标速度，float（来自 `gimbal_control_mailbox().value.base_yaw_speed_cmd`） |
 | 29–35 | `USER_SentryCmd_t` 哨兵自主指令（取自视觉帧快照） |
 | 36–61 | 当前未写入，接收方不应解释 |
 | 62 | `STOPFLAG` |
@@ -195,6 +201,7 @@ Chassis_Input_Node / B2B_Transmit    直接读原始帧快照（AI 速度、哨�
 | `Framework/BranchMergeNode.hpp` | 零引用 | `branch_merge_node` 模板从未实例化 |
 | `SuperCapTask` / `OS_SuperCapCallback` | 空实现 | 仍是 `__weak` 桩 |
 | ~~`Task_Gimbal_Callback` / `Task_Chassis_Callback` / `Task_Shooter_Callback`~~ | **已删除** | 连同只被它们调用的 `Gimbal_UpdataAngle`、`Gimbal_Scan`、`Gimbal_RockerControl`、`Shooter_RockerControl`、`Fric_RockerControl`、`Gimbal_Shooter_VisionControl`、`Chassis_ModeControl`、`Heat_Limit`，以及 `vision_receive` / `vision_target` 全局一起删除；业务逻辑只在 `Graph/` 里保留一份 |
+| ~~`Gimbal_t` 的角度/目标/PID 字段，`chassis.pattern`、`chassis.rotate.mode/InitpitchAngle/align_yaw`，`VisionReceive` / `VisionTarget` / `Vision_DataReceive`~~ | **已删除** | 归属重构后无读者（见 §11）。`Gimbal_t` 只剩 pitch 限幅 + 电机反馈；`Chassis_t` 只剩运动学持续量 + 电机反馈；`chassis_output.vx/vy/vw`、`shooter_output.command/triggering_id` 也因无人读而删除 |
 
 注意：`RobotApplication` 不在任何编译单元里，所以它注释中提到的 `g_robot_debug` 与 `ROBOT_ENABLE_*` 宏**都不存在于当前构建**。它 `#include` 的 `Gimbal_Graph_Config.h` 实际只定义三个容量宏（`ROBOT_MAX_PLUGIN_NODES` / `ROBOT_MAX_PLUGIN_EDGES` / `ROBOT_MAX_EXECUTION_PLANS`），没有裁剪开关。
 
@@ -205,3 +212,30 @@ Chassis_Input_Node / B2B_Transmit    直接读原始帧快照（AI 速度、哨�
 3. `B2B_Transmit` 的 DMA 缓冲复用未做忙检查（见 §6）。
 4. `BranchMergeNode` / `OutputComparison` 仍为零引用（`App/` 的旧过程式实现已清理，见 §9）；要么接线要么删除，否则容易误判能力边界。
 5. `Framework/PluginGraph.hpp` 第 46 行注释说容量宏来自 `Config/robot_build_config.h`，该路径不存在（实际在 `Graph/Gimbal/Gimbal_Graph_Config.h`），属注释错引，待随源码修订一并更正。
+
+## 11. 全局变量归属表（重构依据）
+
+两条规则：
+
+1. **只被一张图使用** → 搬进节点类的私有成员；
+2. **需要跨 task / 跨图** → 走邮箱。迁移前先判断它是「状态」还是「事件」：状态可以覆盖，事件不行。
+
+| 字段组 | 写者 | 读者 | 分类 | 处置 | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| `gimbal.*.targetAngle` | `Gimbal_Output_Node` | 无 | 死写 | 删除 | ✅ 已完成 |
+| `vision_transmit` | Vision 任务 | 同任务 | 单任务私有 | 改 `static` | ✅ 已完成 |
+| `gimbal.*.imuPID`（对象本身） | `Gimbal_Control_Node` | 同节点 | 图内 | 已搬进 `Gimbal_Control_Node`，在 `configure()` 里初始化 | ✅ 已完成 |
+| `gimbal.*.imuPID.output` | `Gimbal_Control_Node` | `MotoApp`、`B2B_Transmit` | 跨任务 | `gimbal_control_mailbox()`，消费方改为 `copy_to()` | ✅ 已完成 |
+| `gimbal` 测量量（`angle`/`totalAngle`/`gyro`） | `Gimbal_State_Node` | Vision 任务回传 | 跨任务 | `gimbal_state_mailbox()` | ✅ 已完成 |
+| `gimbal.pitch.pitchMax/Min` | `Gimbal_Input_Node` | 同节点 | 图内配置 | 已搬为节点成员 `pitch_min_deg_`/`pitch_max_deg_`，C 侧字段删除 | ✅ 已完成 |
+| `chassis.pattern`、`chassis.rotate.mode` | `Chassis_Mode_Node` | Gimbal 任务 | 跨任务 | `chassis_mode_mailbox()`；模式改为节点成员 | ✅ 已完成 |
+| `chassis.motors[].target*`、`now_angle` | `Chassis_Kinematics_Node` | `B2B_Transmit` | 跨任务 | `chassis_output_mailbox()`（新增当前舵角字段） | ✅ 已完成 |
+| `chassis.info`、`move.*`、`rotate.pid/relativeAngle/nowAngle/InitAngle`、`motors[].TurnOffset` | `Chassis_Kinematics_Node` | 同节点 | 图内 | 全部搬为节点私有成员；`Chassis_t` 只剩 `motors[4]` 硬件反馈 | ✅ 已完成 |
+| `shooter.fricMotor[].targetSpeed`、`triggerMotor.targetAngle` | `Shooter_Logic_Node` | `MotoApp` | 跨任务 | 目标速度走邮箱；拨弹目标角改为节点成员 `trigger_target_angle_`，C 侧字段删除 | ✅ 已完成 |
+| `shooter.fricOpen/command/idToTrigger` | `Gimbal_Output_Node` | `Shooter_Input_Node` | 跨图跨任务 | 「请求」与「状态」目前是同一个变量，拆开会影响状态机，需单独设计 | 待设计 |
+| `shooter.fricSpd`、`bullet_speed`、`block` | `Shooter_Logic_Node` | 同节点 | 图内 | 已搬为节点私有成员（`fric_spd_`/`bullet_speed_`/`block_judge_cnt_` 等） | ✅ 已完成 |
+| `shooter.fricMotor[].speedPID`、`triggerMotor.anglePID` | `MotoApp` | `MotoApp` | Moto 任务私有 | 初始化已移入 `Motor_InitPIDs()`；对象仍由驱动类型持有 | 部分完成 |
+| `shooter.triggeringHitTick` | `Vision_Target_Node` | `Shooter_Logic_Node` | 跨任务**事件** | **不能**用 latest-value 邮箱，需事件位图/队列 | 待设计 |
+| `*Motor.*`、`chassis.motors[].TurnAngle/now_Speed` | CAN / B2B 中断 | `read_actuator_feedback` | 硬件反馈 | 不动 | — |
+
+注意：mailbox 的语义是「最新值覆盖」。上表里只有「状态」适合邮箱；「事件」（命中时刻、单次触发脉冲）在消费者一个周期内被覆盖就会丢失，必须单独设计。

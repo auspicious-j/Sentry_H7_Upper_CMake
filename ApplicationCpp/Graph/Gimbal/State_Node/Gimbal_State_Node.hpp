@@ -13,7 +13,7 @@ namespace robot::Gimbal {
 //   - 累计 top_yaw.totalAngle，解缠 top_yaw.targetAngle；
 //   - 计算 base_yaw.totalAngle；
 //   - AI 模式下按遥控器左拨杆加 45°（加弹动作）。
-// 同时把测量量写回 C 侧 gimbal 结构体（Vision TX 还在读这些字段）。
+// 测量量通过 gimbal_state_mailbox() 交给 Vision 任务，不再写 C 侧 gimbal。
 class Gimbal_State_Node final : public robot::framework::plugin_node {
 public:
     explicit Gimbal_State_Node(robot::framework::plugin_id id) : plugin_node(id) {}

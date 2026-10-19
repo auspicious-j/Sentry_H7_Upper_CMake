@@ -5,7 +5,6 @@
 extern "C" {
 #endif
 
-#include "Moto.h"
 #include "USER_Moto.h"
 
 #include <stdbool.h>
@@ -20,6 +19,11 @@ enum
     TRIGGER_DOUBLE
 };
 
+// 发射机构在 C 侧只剩两样东西：
+//   1) 跨图请求（Gimbal Output → Shooter Input）：command / fricOpen / idToTrigger；
+//   2) 跨图事件（Vision Target → Shooter Logic）：triggeringId / hitAtTick / triggeringHitTick。
+// 电机反馈与 PID 也在结构体里（Moto 任务使用）。
+// 其余业务状态（fricSpd / bullet_speed / 堵转计数 / 拨弹目标角）已归 Shooter_Logic_Node 私有。
 typedef struct
 {
     uint8_t command; // 后workstate
@@ -28,32 +32,16 @@ typedef struct
     int8_t triggeringId;// 当前触发的符id
     uint32_t triggeringHitTick;// 当前准备发射的预期命中时长
     uint32_t hitAtTick[5];// 预计的具体命中时刻
-	
+
     DJI_Motor_t triggerMotor; // 拨弹电机和摩擦轮电机
     DJI_Motor_t fricMotor[2];
-	
+
     bool fricOpen;	  // 摩擦轮开启标志  0开1关
-
-    int16_t fricSpd;	  // 摩擦轮速度
-    float ave_bullet_speed;
-    float bullet_speed;
-
-    float distance;		 // 测距 用来补偿
-    float last_bullet_speed;
-    uint8_t box;
-	
-    struct
-	{
-	    uint16_t judgeCnt, reverseCnt; // 堵转判定计数器,反转计数器
-	    uint16_t fric_judgeCnt, fric_reverseCnt;
-	    bool state;
-	} block; // 堵转处理相关数据
-
 } Shooter;
 
 extern Shooter shooter;
 
-void Shooter_Init(void);
+// 初始状态已归 Shooter_Logic_Node；电机 PID 归 Motor 任务。
 
 #ifdef __cplusplus
 }

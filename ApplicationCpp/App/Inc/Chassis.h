@@ -5,71 +5,20 @@
 extern "C" {
 #endif
 
-#include "main.h"
-#include "pid.h"
-#include "Slope.h"
 #include "USER_Moto.h"
+#include "ChassisMode.h"
 
 #define WHEELSPEED_MAX 8000
 
-typedef enum
-{
-    ChassisMode_Follow,	  // 底盘跟随云台模式
-    ChassisMode_Spin,	  // 小陀螺模式
-} ChassisMode;
-
-typedef enum{
-    Chassis_Control,
-    Chassis_AI
-}chassis_pattern;
-
+// 底盘只剩硬件反馈：四轮舵角与轮速（B2B 中断写入，Io/Inputs 读取）。
+// 运动学状态（几何、零点、斜坡、旋转 PID、三轴速度）归 Chassis_Kinematics_Node 私有，
+// 四轮目标通过 chassis_output_mailbox() 交给 RS485 任务。
 typedef struct _Chassis
 {
-	// 底盘尺寸信息
-    struct Info
-	{
-	    float wheelbase;   // 轴距
-	    float wheeltrack;  // 轮距
-	    float wheelRadius; // 轮半径
-	    float offsetX;	   // 重心在xy轴上的偏移
-	    float offsetY;
-	} info;
-	// 8个电机
     Double_motor_t motors[4];
-	
-	// 底盘移动信息
-    struct Move
-	{
-	    float vx; // 当前左右平移速度 mm/s
-	    float vy; // 当前前后移动速度 mm/s
-	    float vw; // 当前旋转速度 rad/s
-
-	    float maxVx, maxVy, maxVw; // 三个分量最大速度
-
-	    float Wheelangle[4];
-	    Slope xSlope, ySlope, outputSlope, chargeSlope, spinSlope; // 斜坡
-	} move;
-	
-	// 旋转相关信息
-    struct
-	{
-	    PID pid;				// 旋转PID，由relativeAngle计算底盘旋转速度
-	    float relativeAngle;	// 云台与底盘的偏离角 单位度
-        float align_yaw; 		//ai传来云台与垂直起伏路段方向的角度 用于底盘与起伏路段对齐
-	    float InitAngle;		// 云台与底盘对齐时的编码器度数 
-	    int16_t InitpitchAngle; // 云台水平时编码器值
-	    float nowAngle;			// 此时云台的编码器换算为°值
-	    ChassisMode mode;		// 底盘模式 小陀螺或者底盘跟随
-	} rotate;
-    chassis_pattern pattern;
 } Chassis_t;
 
 extern Chassis_t chassis;
-
-// 初始化与解算入口（定义在 Chassis.c；插件图节点与任务驱动会调用）。
-void Chassis_Init(void);
-void Chassis_InitPID(void);
-void Chassis_UpdateSlope(void);
 
 #ifdef __cplusplus
 }

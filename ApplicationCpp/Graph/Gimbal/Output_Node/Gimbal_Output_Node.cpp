@@ -2,7 +2,6 @@
 
 extern "C"
 {
-#include "Gimbal.h"
 #include "Shooter.h"
 }
 
@@ -21,11 +20,9 @@ robot::framework::process_result Gimbal_Output_Node::process(robot::framework::f
 
     const gimbal_state& state = state_->read();
 
-    // C 接口提交：目标角与发射请求。
-    gimbal.base_yaw.targetAngle = state.base_yaw_target_deg;
-    gimbal.top_yaw.targetAngle = state.top_yaw_target_deg;
-    gimbal.pitch.targetAngle = state.pitch_target_deg;
-
+    // 只提交「跨任务」的发射请求。
+    // 目标角不再写回 gimbal.*.targetAngle：全工程没有任何读者——控制节点直接
+    // 从 gimbal_state 端口取目标值，不需要再经过 C 全局量转一手。
     shooter.fricOpen = state.fric_open;
     shooter.command = state.shooter_command;
     shooter.idToTrigger = state.id_to_trigger;

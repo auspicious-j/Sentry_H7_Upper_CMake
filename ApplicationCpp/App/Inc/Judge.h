@@ -495,8 +495,6 @@ uint16_t JUDGE_GetHP(void);
 uint16_t JUDGE_GetCoolingValue(void);
 
 
-//任务回调
-void Task_Judge_Callback(void);
 //掉线回调
 void Judge_UartLostCallback(void);
 

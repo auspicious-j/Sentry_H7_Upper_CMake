@@ -266,7 +266,7 @@ static void rc_uart_on_idle(std::uint16_t received_size)
     __HAL_DMA_DISABLE_IT(&hdma_uart5_rx, DMA_IT_HT);
 }
 
-void Task_RC_Callback()
+static void Task_RC_Callback()
 {
 	/**********特殊情况处理*********************/
     if (rcInfo.right == 2) // 遥控器右拨码开关向下，急停

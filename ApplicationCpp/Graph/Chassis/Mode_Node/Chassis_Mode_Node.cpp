@@ -1,9 +1,10 @@
 #include "Chassis_Mode_Node.hpp"
 
+#include "ChassisModeMailbox.hpp"
+
 extern "C"
 {
 #include "Chassis.h"
-#include "Vision.h"
 }
 
 namespace robot::Chassis {
@@ -22,25 +23,25 @@ robot::framework::process_result Chassis_Mode_Node::process(robot::framework::fr
 
     const chassis_inputs& inputs = inputs_->read();
 
-    // —— 逐行对应旧 Chassis_ModeControl() ——
+    // 模式归本节点所有：跨帧状态保存在成员里，不再写 C 侧 chassis.pattern / rotate.mode。
     // 左拨杆：下 → 小陀螺，上（3）→ 跟随。
-    if ((chassis.rotate.mode != ChassisMode_Spin) && (inputs.rc.left == 2U))
+    if ((rotate_mode_ != static_cast<std::uint8_t>(ChassisMode_Spin)) && (inputs.rc.left == 2U))
     {
-        chassis.rotate.mode = ChassisMode_Spin;
+        rotate_mode_ = static_cast<std::uint8_t>(ChassisMode_Spin);
     }
-    else if ((chassis.rotate.mode == ChassisMode_Spin) && (inputs.rc.left == 3U))
+    else if ((rotate_mode_ == static_cast<std::uint8_t>(ChassisMode_Spin)) && (inputs.rc.left == 3U))
     {
-        chassis.rotate.mode = ChassisMode_Follow;
+        rotate_mode_ = static_cast<std::uint8_t>(ChassisMode_Follow);
     }
 
     // 右拨杆：3 → AI，1 → 手动；其它保持原值。
     switch (inputs.rc.right)
     {
     case 3:
-        chassis.pattern = Chassis_AI;
+        pattern_ = static_cast<std::uint8_t>(Chassis_AI);
         break;
     case 1:
-        chassis.pattern = Chassis_Control;
+        pattern_ = static_cast<std::uint8_t>(Chassis_Control);
         break;
     default:
         break;
@@ -48,19 +49,25 @@ robot::framework::process_result Chassis_Mode_Node::process(robot::framework::fr
 
     // AI 模式下由视觉决定旋转模式（ModeControl 的中间结果）。
     // 注意：旧实现这里用的是“反”的映射（spin_mode==0 → Spin），它会被
-    // Chassis_UpdateSlope() 用来选择 maxVx；随后 Kinematics_Node 会在
-    // UpdateSlope 之后再做一次最终覆盖（spin_mode==0 → Follow）。
-    if (chassis.pattern == Chassis_AI)
+    // Kinematics_Node 的 update_slope() 用来选择 maxVx；随后 Kinematics_Node
+    // 会在 update_slope 之后再做一次最终覆盖（spin_mode==0 → Follow）。
+    if (pattern_ == static_cast<std::uint8_t>(Chassis_AI))
     {
-        chassis.rotate.mode = (inputs.spin_mode == 0U) ? ChassisMode_Spin : ChassisMode_Follow;
+        rotate_mode_ = (inputs.spin_mode == 0U)
+            ? static_cast<std::uint8_t>(ChassisMode_Spin)
+            : static_cast<std::uint8_t>(ChassisMode_Follow);
     }
 
     chassis_mode mode{};
-    mode.pattern = static_cast<std::uint8_t>(chassis.pattern);
-    mode.rotate_mode = static_cast<std::uint8_t>(chassis.rotate.mode);
+    mode.pattern = pattern_;
+    mode.rotate_mode = rotate_mode_;
     mode.sampled_at_us = context.timestamp_us;
 
     output_.publish(context.frame_id, mode);
+
+    // 跨任务交付：Gimbal 任务从邮箱取底盘模式。
+    chassis_mode_mailbox().publish(mode, context.timestamp_us);
+
     return robot::framework::process_result::ok;
 }
 

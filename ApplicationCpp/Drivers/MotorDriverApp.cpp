@@ -10,7 +10,6 @@ void Motor_StartCalcAngle(DJI_Motor_t *motor)
 {
     motor->totalAngle = 0;
     motor->lastAngle = motor->angle;
-    motor->targetAngle = 0;
 }
 
 // 计算电机累计转过的圈数
@@ -20,19 +19,6 @@ void Motor_CalcAngle(DJI_Motor_t *motor)
     motor->totalAngle += ModularDJIAngleTowards(motor->angle - motor->lastAngle, 0);
     // 记录角度
     motor->lastAngle = motor->angle;
-}
-
-/********************积累舵电机累计角度************************/
-void Motor_StartCalcAngle_J4310(Double_motor_t *motor)
-{
-    motor->totalAngle = ModularDegreeTowards(motor->TurnAngle, 0.0f);
-    motor->lastAngle = motor->TurnAngle;
-}
-
-void Motor_CalcAngle_J4310(Double_motor_t *motor)
-{
-    motor->totalAngle += ModularDegreeTowards(motor->TurnAngle - motor->lastAngle, 0.0f);
-    motor->lastAngle = motor->TurnAngle;
 }
 
 int float_to_uint(float x_float, float x_min, float x_max, int bits)

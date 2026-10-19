@@ -20,7 +20,6 @@ struct gimbal_inputs {
     robot::io::inputs::imu_snapshot imu;
     robot::io::inputs::rc_snapshot rc;
     robot::io::inputs::actuator_feedback feedback;
-    robot::io::inputs::judge_snapshot judge;
 
     // 视觉目标（由 Vision_Target_Node 通过端口提供）。
     bool vision_valid;
@@ -39,7 +38,7 @@ struct gimbal_inputs {
     std::uint8_t chassis_pattern;
     std::uint8_t chassis_rotate_mode;
 
-    // 目标角限幅（由 Gimbal_Init 写入 gimbal.pitch，每帧读取）。
+    // 目标角限幅（由 Gimbal_Input_Node 私有成员提供，每帧读取）。
     float pitch_min_deg;
     float pitch_max_deg;
 
@@ -54,19 +53,16 @@ struct gimbal_targets {
     bool fric_open;
     std::uint8_t shooter_command;
     std::int8_t id_to_trigger;
-    bool vision_control_active;
     std::uint64_t sampled_at_us;
 };
 
 // State_Node 的输出：本帧测量状态 + 解缠/加弹修正后的最终目标。
 struct gimbal_state {
-    // 测量量（对应旧 Gimbal_UpdataAngle 写入的字段）。
-    float top_yaw_angle_deg;
+    // 测量量（Control_Node 使用；测量量另经 gimbal_state_mailbox() 交给 Vision）。
     float top_yaw_total_deg;
     float base_yaw_total_deg;
     float pitch_angle_deg;
     float top_gyro_z;
-    float pitch_gyro_x;
 
     // 最终目标角（已做 ModularDegreeTowards 解缠，base 可能含 +45 加弹修正）。
     float base_yaw_target_deg;
@@ -77,15 +73,16 @@ struct gimbal_state {
     bool fric_open;
     std::uint8_t shooter_command;
     std::int8_t id_to_trigger;
-    bool vision_control_active;
 
     std::uint64_t sampled_at_us;
 };
 
 // Control_Node 的输出：本帧算出的执行机构指令。
+// 该结构既是图内端口的值类型，也是 gimbal_control_mailbox() 跨任务传递的快照类型。
 struct gimbal_control {
     float top_yaw_current;    // 小 yaw 电流（CAN 0x1FF）。
     float pitch_mit_torque;   // pitch MIT 力矩前馈输出。
+    float pitch_outer_output; // pitch 外环原始输出（MIT 的 Kp 项，Motor 任务使用）。
     float base_yaw_speed_cmd; // 大 yaw 速度指令（B2B 发送）。
     std::uint64_t sampled_at_us;
 };

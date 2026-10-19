@@ -2,13 +2,13 @@
 
 #include <cmath>
 
+#include "ChassisOutputMailbox.hpp"
+
 extern "C"
 {
-#include "Chassis.h"
-#include "Gimbal.h"
-#include "PID.h"
-#include "Slope.h"
-#include "degree.h"
+#include "Chassis.h" // WHEELSPEED_MAX
+#include "Gimbal.h"  // INIT_YAW_ANGLE
+#include "degree.h"  // ModularDegreeTowards
 }
 
 namespace robot::Chassis {
@@ -30,6 +30,69 @@ float clamp_to(float value, float min_value, float max_value)
 }
 } // namespace
 
+robot::framework::plugin_status Chassis_Kinematics_Node::configure()
+{
+    // 底盘尺寸（原 Chassis_Init）
+    info_.wheelbase = 320;
+    info_.wheeltrack = 320;
+    info_.wheelRadius = 115;
+    info_.offsetX = 0;
+    info_.offsetY = 0;
+
+    init_angle_ = INIT_YAW_ANGLE;
+
+    // 舵电机零点标定（单位°，正常加减 30° 的倍数）
+    turn_offset_[0] = -304.57f - 30.0f + 180.0f;
+    turn_offset_[1] = -44.78f + 30.0f + 45.0f + 180.0f;
+    turn_offset_[2] = -119.49f + 30.0f + 90.0f + 15.0f + 180.0f;
+    turn_offset_[3] = -6.5f + 90.0f - 15.0f + 180.0f;
+
+    Slope_Init(&x_slope_, 40, 0);
+    Slope_Init(&y_slope_, 40, 0);
+    Slope_Init(&spin_slope_, 0.1, 0);
+
+    PID_Init(&rotate_pid_, 0.25f, 0, 6, 2, 15);
+    PID_SetDeadzone(&rotate_pid_, 0.1f);
+
+    return robot::framework::plugin_node::configure();
+}
+
+void Chassis_Kinematics_Node::spin_speed_update(ChassisMode mode)
+{
+    max_vw_ = 3.25f;
+    if (max_vw_ <= 0.5f)
+    {
+        max_vw_ = 0.5f;
+    }
+
+    if (mode == ChassisMode_Spin)
+    {
+        max_vx_ = 2159.6f;
+        if (max_vx_ <= 0)
+            max_vx_ = 0;
+        max_vy_ = max_vx_;
+    }
+    else
+    {
+        max_vx_ = 5500;
+        max_vy_ = 5500;
+    }
+}
+
+void Chassis_Kinematics_Node::update_slope(ChassisMode mode)
+{
+    Slope_NextVal(&x_slope_);
+    Slope_NextVal(&y_slope_);
+    Slope_NextVal(&spin_slope_);
+    spin_speed_update(mode);
+
+    const float rotate_ratio = (info_.wheelbase + info_.wheeltrack) / 4.0f;
+    max_vx_ = WHEELSPEED_MAX / 60.0f / (268.f / 17.f) * 2.0f * k_pi * info_.wheelRadius;
+    max_vy_ = max_vx_;
+    max_vw_ = WHEELSPEED_MAX / rotate_ratio / 60.0f / (268.f / 17.f) * 2.0f * k_pi *
+        info_.wheelRadius * 1.0f / 1.414f;
+}
+
 robot::framework::process_result Chassis_Kinematics_Node::process(robot::framework::frame_context& context)
 {
     if ((inputs_ == nullptr) || (mode_ == nullptr))
@@ -47,79 +110,84 @@ robot::framework::process_result Chassis_Kinematics_Node::process(robot::framewo
     const chassis_mode& mode = mode_->read();
     const bool is_ai = (mode.pattern == Chassis_AI);
 
+    // 模式由 Mode_Node 决定、经端口传入。AI 分支会在 update_slope 之后覆盖它，
+    // 因此这里先锁存"覆盖前"的值，再算出本帧最终模式（与旧实现顺序一致）。
+    const ChassisMode mode_before = static_cast<ChassisMode>(mode.rotate_mode);
+    ChassisMode final_mode = mode_before;
+
     // —— 以下计算逐行对应旧 Task_Chassis_Callback() ——
-    chassis.rotate.InitAngle = ModularDegreeTowards(INIT_YAW_ANGLE, 0.0f);
-    chassis.rotate.nowAngle = inputs.base_yaw_angle_deg;
-    chassis.rotate.relativeAngle = chassis.rotate.nowAngle - chassis.rotate.InitAngle;
+    init_angle_ = ModularDegreeTowards(INIT_YAW_ANGLE, 0.0f);
+    now_angle_ = inputs.base_yaw_angle_deg;
+    relative_angle_ = now_angle_ - init_angle_;
 
     if (is_ai)
     {
-        Slope_SetTarget(&chassis.move.xSlope, 1.5f * inputs.vx);
-        Slope_SetTarget(&chassis.move.ySlope, 1.5f * inputs.vy);
-        const float gimbal_angle_sin = std::sin(-chassis.rotate.relativeAngle * k_pi / 180.0f);
-        const float gimbal_angle_cos = std::cos(-chassis.rotate.relativeAngle * k_pi / 180.0f);
-        chassis.move.vx = -(Slope_GetVal(&chassis.move.xSlope) * gimbal_angle_cos +
-                            Slope_GetVal(&chassis.move.ySlope) * gimbal_angle_sin);
-        chassis.move.vy = (-Slope_GetVal(&chassis.move.xSlope) * gimbal_angle_sin +
-                           Slope_GetVal(&chassis.move.ySlope) * gimbal_angle_cos);
-        Chassis_UpdateSlope();
+        Slope_SetTarget(&x_slope_, 1.5f * inputs.vx);
+        Slope_SetTarget(&y_slope_, 1.5f * inputs.vy);
+        const float gimbal_angle_sin = std::sin(-relative_angle_ * k_pi / 180.0f);
+        const float gimbal_angle_cos = std::cos(-relative_angle_ * k_pi / 180.0f);
+        vx_ = -(Slope_GetVal(&x_slope_) * gimbal_angle_cos +
+                Slope_GetVal(&y_slope_) * gimbal_angle_sin);
+        vy_ = (-Slope_GetVal(&x_slope_) * gimbal_angle_sin +
+               Slope_GetVal(&y_slope_) * gimbal_angle_cos);
+        update_slope(mode_before);
 
-        // 旧实现：AI 模式下在 UpdateSlope 之后按视觉 spin_mode 覆盖旋转模式。
-        chassis.rotate.mode = (inputs.spin_mode == 0U) ? ChassisMode_Follow : ChassisMode_Spin;
+        // 旧实现：AI 模式下在 update_slope 之后按视觉 spin_mode 覆盖旋转模式。
+        final_mode = (inputs.spin_mode == 0U) ? ChassisMode_Follow : ChassisMode_Spin;
     }
     else
     {
-        Slope_SetTarget(&chassis.move.xSlope, -(float)inputs.rc.ch3 * chassis.move.maxVx / 660.0f);
-        Slope_SetTarget(&chassis.move.ySlope, (float)inputs.rc.ch4 * chassis.move.maxVy / 660.0f);
-        const float gimbal_angle_sin = std::sin(-chassis.rotate.relativeAngle * k_pi / 180.0f);
-        const float gimbal_angle_cos = std::cos(-chassis.rotate.relativeAngle * k_pi / 180.0f);
-        chassis.move.vx = -(Slope_GetVal(&chassis.move.xSlope) * gimbal_angle_cos +
-                            Slope_GetVal(&chassis.move.ySlope) * gimbal_angle_sin);
-        chassis.move.vy = (-Slope_GetVal(&chassis.move.xSlope) * gimbal_angle_sin +
-                           Slope_GetVal(&chassis.move.ySlope) * gimbal_angle_cos);
-        Chassis_UpdateSlope();
+        Slope_SetTarget(&x_slope_, -(float)inputs.rc.ch3 * max_vx_ / 660.0f);
+        Slope_SetTarget(&y_slope_, (float)inputs.rc.ch4 * max_vy_ / 660.0f);
+        const float gimbal_angle_sin = std::sin(-relative_angle_ * k_pi / 180.0f);
+        const float gimbal_angle_cos = std::cos(-relative_angle_ * k_pi / 180.0f);
+        vx_ = -(Slope_GetVal(&x_slope_) * gimbal_angle_cos +
+                Slope_GetVal(&y_slope_) * gimbal_angle_sin);
+        vy_ = (-Slope_GetVal(&x_slope_) * gimbal_angle_sin +
+               Slope_GetVal(&y_slope_) * gimbal_angle_cos);
+        update_slope(mode_before);
     }
 
-    const bool is_spin = (chassis.rotate.mode == ChassisMode_Spin);
+    const bool is_spin = (final_mode == ChassisMode_Spin);
 
     // 旋转控制。
     if (!is_spin) // 跟随模式
     {
-        Slope_SetTarget(&chassis.move.spinSlope, 0);
-        chassis.rotate.relativeAngle = ModularDegreeTowards(chassis.rotate.relativeAngle, 0.0f);
+        Slope_SetTarget(&spin_slope_, 0);
+        relative_angle_ = ModularDegreeTowards(relative_angle_, 0.0f);
 
         if (!is_ai)
         {
-            PID_SingleCalc(&chassis.rotate.pid, 0, -chassis.rotate.relativeAngle);
-            chassis.move.vw = chassis.rotate.pid.output + chassis.move.spinSlope.value;
-            chassis.move.vw = clamp_to(chassis.move.vw, -chassis.move.maxVw, chassis.move.maxVw);
+            PID_SingleCalc(&rotate_pid_, 0, -relative_angle_);
+            vw_ = rotate_pid_.output + spin_slope_.value;
+            vw_ = clamp_to(vw_, -max_vw_, max_vw_);
         }
         else
         {
             if (inputs.align_mode == 1U)
             {
                 const float target = -inputs.align_yaw_deg;
-                const float feedback = ModularDegreeTowards(-chassis.rotate.relativeAngle, target);
-                PID_SingleCalc(&chassis.rotate.pid, target, feedback);
-                chassis.move.vw = chassis.rotate.pid.output + chassis.move.spinSlope.value;
-                chassis.move.vw = clamp_to(chassis.move.vw, -chassis.move.maxVw, chassis.move.maxVw);
+                const float feedback = ModularDegreeTowards(-relative_angle_, target);
+                PID_SingleCalc(&rotate_pid_, target, feedback);
+                vw_ = rotate_pid_.output + spin_slope_.value;
+                vw_ = clamp_to(vw_, -max_vw_, max_vw_);
             }
             else
             {
-                chassis.move.vw = inputs.vw;
-                chassis.move.vw = clamp_to(chassis.move.vw, -chassis.move.maxVw, chassis.move.maxVw);
+                vw_ = inputs.vw;
+                vw_ = clamp_to(vw_, -max_vw_, max_vw_);
             }
         }
     }
     else // 小陀螺模式
     {
-        chassis.move.vw = chassis.move.spinSlope.value;
+        vw_ = spin_slope_.value;
         float ratio = 1.0f;
 
         if (!is_ai)
         {
-            if (std::fabs(Slope_GetVal(&chassis.move.xSlope)) / chassis.move.maxVx +
-                    std::fabs(Slope_GetVal(&chassis.move.ySlope)) / chassis.move.maxVy > 0.05f)
+            if (std::fabs(Slope_GetVal(&x_slope_)) / max_vx_ +
+                    std::fabs(Slope_GetVal(&y_slope_)) / max_vy_ > 0.05f)
             {
                 ratio = 0.6f;
             }
@@ -133,48 +201,49 @@ robot::framework::process_result Chassis_Kinematics_Node::process(robot::framewo
             ratio = 0.5f;
         }
 
-        Slope_SetTarget(&chassis.move.spinSlope, chassis.move.maxVw * ratio);
+        Slope_SetTarget(&spin_slope_, max_vw_ * ratio);
     }
 
-    // 当前舵角（反馈来自 B2B 快照）。
+    // 当前舵角（反馈来自 B2B 快照），只在本节点内使用。
+    float wheel_now_angle[4];
     for (std::uint8_t index = 0U; index < 4U; ++index)
     {
-        chassis.motors[index].now_angle =
-            ModularDegreeTowards(inputs.wheel_turn_angle_deg[index] - chassis.motors[index].TurnOffset, 0.0f);
+        wheel_now_angle[index] =
+            ModularDegreeTowards(inputs.wheel_turn_angle_deg[index] - turn_offset_[index], 0.0f);
     }
 
     // 四轮解算。
     float rotate_ratio[4];
-    rotate_ratio[0] = 1.414f * (chassis.info.wheelbase + chassis.info.wheeltrack) / 4.0f -
-        chassis.info.offsetY * std::fabs(chassis.move.spinSlope.value) / chassis.move.maxVw +
-        chassis.info.offsetX * std::fabs(chassis.move.spinSlope.value) / chassis.move.maxVw;
-    rotate_ratio[1] = 1.414f * (chassis.info.wheelbase + chassis.info.wheeltrack) / 4.0f -
-        chassis.info.offsetY * std::fabs(chassis.move.spinSlope.value) / chassis.move.maxVw -
-        chassis.info.offsetX * std::fabs(chassis.move.spinSlope.value) / chassis.move.maxVw;
-    rotate_ratio[2] = 1.414f * (chassis.info.wheelbase + chassis.info.wheeltrack) / 4.0f +
-        chassis.info.offsetY * std::fabs(chassis.move.spinSlope.value) / chassis.move.maxVw +
-        chassis.info.offsetX * std::fabs(chassis.move.spinSlope.value) / chassis.move.maxVw;
-    rotate_ratio[3] = 1.414f * (chassis.info.wheelbase + chassis.info.wheeltrack) / 4.0f +
-        chassis.info.offsetY * std::fabs(chassis.move.spinSlope.value) / chassis.move.maxVw -
-        chassis.info.offsetX * std::fabs(chassis.move.spinSlope.value) / chassis.move.maxVw;
+    rotate_ratio[0] = 1.414f * (info_.wheelbase + info_.wheeltrack) / 4.0f -
+        info_.offsetY * std::fabs(spin_slope_.value) / max_vw_ +
+        info_.offsetX * std::fabs(spin_slope_.value) / max_vw_;
+    rotate_ratio[1] = 1.414f * (info_.wheelbase + info_.wheeltrack) / 4.0f -
+        info_.offsetY * std::fabs(spin_slope_.value) / max_vw_ -
+        info_.offsetX * std::fabs(spin_slope_.value) / max_vw_;
+    rotate_ratio[2] = 1.414f * (info_.wheelbase + info_.wheeltrack) / 4.0f +
+        info_.offsetY * std::fabs(spin_slope_.value) / max_vw_ +
+        info_.offsetX * std::fabs(spin_slope_.value) / max_vw_;
+    rotate_ratio[3] = 1.414f * (info_.wheelbase + info_.wheeltrack) / 4.0f +
+        info_.offsetY * std::fabs(spin_slope_.value) / max_vw_ -
+        info_.offsetX * std::fabs(spin_slope_.value) / max_vw_;
 
     float wheel_vx[4];
     float wheel_vy[4];
-    wheel_vx[0] = chassis.move.vx + chassis.move.vw * rotate_ratio[1] / 1.414f;
-    wheel_vy[0] = chassis.move.vy + chassis.move.vw * rotate_ratio[1] / 1.414f;
-    wheel_vx[1] = chassis.move.vx + chassis.move.vw * rotate_ratio[2] / 1.414f;
-    wheel_vy[1] = chassis.move.vy - chassis.move.vw * rotate_ratio[2] / 1.414f;
-    wheel_vx[2] = chassis.move.vx - chassis.move.vw * rotate_ratio[0] / 1.414f;
-    wheel_vy[2] = chassis.move.vy + chassis.move.vw * rotate_ratio[0] / 1.414f;
-    wheel_vx[3] = chassis.move.vx - chassis.move.vw * rotate_ratio[3] / 1.414f;
-    wheel_vy[3] = chassis.move.vy - chassis.move.vw * rotate_ratio[3] / 1.414f;
+    wheel_vx[0] = vx_ + vw_ * rotate_ratio[1] / 1.414f;
+    wheel_vy[0] = vy_ + vw_ * rotate_ratio[1] / 1.414f;
+    wheel_vx[1] = vx_ + vw_ * rotate_ratio[2] / 1.414f;
+    wheel_vy[1] = vy_ - vw_ * rotate_ratio[2] / 1.414f;
+    wheel_vx[2] = vx_ - vw_ * rotate_ratio[0] / 1.414f;
+    wheel_vy[2] = vy_ + vw_ * rotate_ratio[0] / 1.414f;
+    wheel_vx[3] = vx_ - vw_ * rotate_ratio[3] / 1.414f;
+    wheel_vy[3] = vy_ - vw_ * rotate_ratio[3] / 1.414f;
 
     chassis_output output{};
     for (std::uint8_t index = 0U; index < 4U; ++index)
     {
         float target_angle;
-        std::int32_t wheel_rpm = -std::hypot(wheel_vx[index], wheel_vy[index]) * 60 / (2 * k_pi * chassis.info.wheelRadius) *
-            (268.0f / 17.0f);
+        std::int32_t wheel_rpm = -std::hypot(wheel_vx[index], wheel_vy[index]) * 60 /
+            (2 * k_pi * info_.wheelRadius) * (268.0f / 17.0f);
 
         if (wheel_rpm != 0)
         {
@@ -186,30 +255,28 @@ robot::framework::process_result Chassis_Kinematics_Node::process(robot::framewo
             target_angle = default_angle[index];
         }
 
-        target_angle = ModularDegreeTowards(target_angle, chassis.motors[index].now_angle);
+        target_angle = ModularDegreeTowards(target_angle, wheel_now_angle[index]);
 
-        if (target_angle - chassis.motors[index].now_angle >= 90)
+        if (target_angle - wheel_now_angle[index] >= 90)
         {
             target_angle -= 180.0f;
             wheel_rpm = -wheel_rpm;
         }
-        else if (target_angle - chassis.motors[index].now_angle < -90)
+        else if (target_angle - wheel_now_angle[index] < -90)
         {
             target_angle += 180.0f;
             wheel_rpm = -wheel_rpm;
         }
 
-        chassis.motors[index].targetTurnAngle = target_angle;
-        chassis.motors[index].targetDriveSpeed = wheel_rpm;
-
         output.target_turn_angle_deg[index] = target_angle;
         output.target_drive_speed[index] = wheel_rpm;
+        output.now_turn_angle_deg[index] = wheel_now_angle[index];
     }
 
-    output.vx = chassis.move.vx;
-    output.vy = chassis.move.vy;
-    output.vw = chassis.move.vw;
     output.sampled_at_us = context.timestamp_us;
+
+    // 跨任务交付：RS485 任务从邮箱取四舵轮目标值与当前舵角。
+    chassis_output_mailbox().publish(output, context.timestamp_us);
 
     output_.publish(context.frame_id, output);
     return robot::framework::process_result::ok;

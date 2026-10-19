@@ -22,7 +22,7 @@ inline constexpr std::uint8_t k_mode_none = 0U;
 inline constexpr std::uint8_t k_mode_armor = 1U;
 inline constexpr std::uint8_t k_mode_rune = 2U;
 
-// 视觉接收帧的线上布局，逐字节对应 Vision.h 中的 VisionReceive。
+// 视觉接收帧的线上布局：历史上逐字节对应 Vision.h 的 VisionReceive（该类型已删除）。
 // 这里刻意重新声明而不 include Vision.h：Vision.h 会带入 main.h / Shooter.h
 // 等硬件与业务头，破坏本层的可移植性。布局由下方 static_assert 锁定。
 #pragma pack(push, 1)
@@ -70,7 +70,7 @@ struct vision_receive_wire {
 #pragma pack(pop)
 
 static_assert(sizeof(vision_receive_wire) == 88U,
-              "vision_receive_wire 布局必须与 VisionReceive 完全一致");
+              "vision_receive_wire 必须保持 88 字节（视觉接收协议）");
 
 // 一帧视觉数据解码后的领域快照（平凡可复制，可直接放进快照邮箱）。
 // 语义约定：

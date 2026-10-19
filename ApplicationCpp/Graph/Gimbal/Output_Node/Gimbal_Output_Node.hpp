@@ -7,12 +7,12 @@
 
 namespace robot::Gimbal {
 
-// Output_Node：把本帧最终结果写回 C 侧接口。
-// 迁移期 C 侧的消费方（Motor 任务、B2B 发送、Shooter 任务）仍读 gimbal/shooter
-// 全局量，所以由本节点作为唯一写者完成“C 接口提交”：
-//   - gimbal.*.targetAngle；
+// Output_Node：把本帧最终结果提交到 C 侧接口。
+// 迁移期 C 侧的消费方（Shooter 任务）仍读 shooter 全局量，本节点是它们唯一的写者：
 //   - shooter.fricOpen / command / idToTrigger。
-// PID 输出由 Control_Node 直接写入 gimbal.*.imuPID，Motor 任务照旧读取。
+// gimbal.*.targetAngle 不再写：全工程没有读者，控制节点直接用 gimbal_state 端口。
+// PID 输出由 Control_Node 自己持有并发布到 gimbal_control_mailbox()，
+// Motor / B2B 任务从邮箱读取（见 README §11 的归属表）。
 class Gimbal_Output_Node final : public robot::framework::plugin_node {
 public:
     explicit Gimbal_Output_Node(robot::framework::plugin_id id) : plugin_node(id) {}

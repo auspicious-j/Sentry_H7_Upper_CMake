@@ -73,25 +73,13 @@ struct judge_snapshot {
     std::uint64_t sampled_at_us;
 };
 
-// 执行机构反馈快照：CAN1/CAN2 电机反馈 + B2B 下板反馈。
+// 执行机构反馈快照：只保留图里真正消费的字段（触发累计角、小 yaw 编码器、
+// 四轮舵角、大 yaw 角度）。其余电机量目前无人读，删掉以免整份拷贝时白白搬运。
 struct actuator_feedback {
-    // CAN1：摩擦轮 / 拨弹电机。
-    std::int16_t fric_speed[2];
-    std::int16_t trigger_angle;
-    std::int16_t trigger_speed;
     std::int32_t trigger_total_angle; // 拨弹电机累计角度（Motor 任务更新）。
-    // CAN2：小 yaw（DJI 6020）/ pitch（DM4310）。
-    std::int16_t top_yaw_angle;
-    std::int16_t top_yaw_speed;
-    float pitch_pos_rad;
-    float pitch_vel_rad_s;
-    std::int8_t pitch_state;
-    // B2B：四轮舵角/轮速 + 大 yaw 角度。
-    float wheel_turn_angle_deg[4];
-    std::int16_t wheel_speed[4];
-    float base_yaw_angle_deg;
-    std::uint8_t b2b_feedback; // 下板反馈状态（FEEDBACK）。
-    std::uint8_t stop_flag;    // 下板急停标志（STOPFLAG）。
+    std::int16_t top_yaw_angle;       // 小 yaw 编码器（State 节点解算 base yaw）。
+    float wheel_turn_angle_deg[4];    // B2B：四轮舵角。
+    float base_yaw_angle_deg;         // B2B：大 yaw 角度。
     std::uint64_t sampled_at_us;
 };
 

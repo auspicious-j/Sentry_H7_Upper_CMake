@@ -63,8 +63,6 @@ void Beep_PlayOneNote(Note *note);
 void Beep_PlayNotes(Note notes[],uint8_t noteNum);
 //阻塞式播放所有音符
 void Beep_Block_PlayAll(void);
-//蜂鸣器任务回调
-void Task_Beep_Callback(void);
 
 #ifdef __cplusplus
 }

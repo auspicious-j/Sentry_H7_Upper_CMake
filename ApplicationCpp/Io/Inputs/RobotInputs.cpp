@@ -102,26 +102,14 @@ actuator_feedback read_actuator_feedback(std::uint64_t sampled_at_us)
     {
         const robot::framework::snapshot_lock_guard guard(g_input_lock);
 
-        snapshot.fric_speed[0] = shooter.fricMotor[0].speed;
-        snapshot.fric_speed[1] = shooter.fricMotor[1].speed;
-        snapshot.trigger_angle = shooter.triggerMotor.angle;
-        snapshot.trigger_speed = shooter.triggerMotor.speed;
         snapshot.trigger_total_angle = shooter.triggerMotor.totalAngle;
-
         snapshot.top_yaw_angle = gimbal.top_yawMotor.angle;
-        snapshot.top_yaw_speed = gimbal.top_yawMotor.speed;
-        snapshot.pitch_pos_rad = gimbal.pitchMotor.para.pos;
-        snapshot.pitch_vel_rad_s = gimbal.pitchMotor.para.vel;
-        snapshot.pitch_state = static_cast<std::int8_t>(gimbal.pitchMotor.para.state);
 
         for (std::uint8_t index = 0U; index < 4U; ++index)
         {
             snapshot.wheel_turn_angle_deg[index] = chassis.motors[index].TurnAngle;
-            snapshot.wheel_speed[index] = chassis.motors[index].now_Speed;
         }
         snapshot.base_yaw_angle_deg = gimbal.base_yawMotor.nowAngle;
-        snapshot.b2b_feedback = FEEDBACK;
-        snapshot.stop_flag = STOPFLAG;
     }
     snapshot.sampled_at_us = sampled_at_us;
     return snapshot;

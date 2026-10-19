@@ -1,5 +1,7 @@
 #include "Shooter_Logic_Node.hpp"
 
+#include "ShooterOutputMailbox.hpp"
+
 extern "C"
 {
 #include "Beep.h"
@@ -28,60 +30,56 @@ robot::framework::process_result Shooter_Logic_Node::process(robot::framework::f
     // 1) 弹速自适应。
     if (inputs.judge.initial_speed > 10.0f)
     {
-        shooter.bullet_speed = inputs.judge.initial_speed;
+        bullet_speed_ = inputs.judge.initial_speed;
     }
 
-    if (shooter.bullet_speed != shooter.last_bullet_speed)
+    if (bullet_speed_ != last_bullet_speed_)
     {
-        if (shooter.bullet_speed > 22.5f)
+        if (bullet_speed_ > 22.5f)
         {
             ++over_speed_;
             if (over_speed_ >= 2U)
             {
                 over_speed_ = 0U;
-                shooter.fricSpd -= 60;
+                fric_spd_ -= 60;
                 down_speed_ = 0U;
             }
         }
-        else if (shooter.bullet_speed < 21.5f)
+        else if (bullet_speed_ < 21.5f)
         {
             ++down_speed_;
             if (down_speed_ >= 4U)
             {
                 down_speed_ = 0U;
-                shooter.fricSpd += 50;
+                fric_spd_ += 50;
             }
         }
     }
-    shooter.last_bullet_speed = shooter.bullet_speed;
+    last_bullet_speed_ = bullet_speed_;
 
-    // 2) 摩擦轮目标速度。
+    // 2) 摩擦轮目标速度（只进本帧输出）。
+    std::int16_t fric_target_speed[2] = {0, 0};
     if (inputs.fric_open)
     {
-        shooter.fricMotor[0].targetSpeed = -shooter.fricSpd;
-        shooter.fricMotor[1].targetSpeed = shooter.fricSpd;
-    }
-    else
-    {
-        shooter.fricMotor[0].targetSpeed = 0;
-        shooter.fricMotor[1].targetSpeed = 0;
+        fric_target_speed[0] = static_cast<std::int16_t>(-fric_spd_);
+        fric_target_speed[1] = static_cast<std::int16_t>(fric_spd_);
     }
 
     // 3) 堵转检测（累计角度与目标角度相差超过 10°）。
-    const std::int32_t angle_error = inputs.feedback.trigger_total_angle - shooter.triggerMotor.targetAngle;
+    const std::int32_t angle_error = inputs.feedback.trigger_total_angle - trigger_target_angle_;
     if (((angle_error > MOTOR_M3508_DGR2CODE(10)) || (angle_error < -MOTOR_M3508_DGR2CODE(10))) &&
         (shooter.command != TRIGGER_REVERSE))
     {
-        ++shooter.block.judgeCnt;
-        if (shooter.block.judgeCnt > 100)
+        ++block_judge_cnt_;
+        if (block_judge_cnt_ > 100)
         {
-            shooter.block.judgeCnt = 0;
+            block_judge_cnt_ = 0;
             shooter.command = TRIGGER_REVERSE;
         }
     }
     else
     {
-        shooter.block.judgeCnt = 0;
+        block_judge_cnt_ = 0;
     }
 
     // 4) 热量限制（与旧实现一致：恒返回 true，只更新发射间隔）。
@@ -89,7 +87,7 @@ robot::framework::process_result Shooter_Logic_Node::process(robot::framework::f
 
     // 5) 拨弹到位后记录符命中时刻。
     const bool target_reached =
-        (shooter.triggerMotor.targetAngle - inputs.feedback.trigger_total_angle) < MOTOR_M3508_DGR2CODE(9);
+        (trigger_target_angle_ - inputs.feedback.trigger_total_angle) < MOTOR_M3508_DGR2CODE(9);
     if (target_reached && (shooter.triggeringId >= 0))
     {
         shooter.hitAtTick[shooter.triggeringId] = HAL_GetTick() + shooter.triggeringHitTick;
@@ -104,7 +102,7 @@ robot::framework::process_result Shooter_Logic_Node::process(robot::framework::f
         {
             if (target_reached && (now_ms >= trigger_block_until_ms_))
             {
-                shooter.triggerMotor.targetAngle += MOTOR_M3508_DGR2CODE(360 * 1 / 9.0 * 1);
+                trigger_target_angle_ += MOTOR_M3508_DGR2CODE(360 * 1 / 9.0 * 1);
                 shooter.triggeringId = shooter.idToTrigger;
                 shooter.idToTrigger = -1;
                 shooter.command = IDLE;
@@ -123,7 +121,7 @@ robot::framework::process_result Shooter_Logic_Node::process(robot::framework::f
         {
             if (target_reached && (now_ms >= trigger_block_until_ms_))
             {
-                shooter.triggerMotor.targetAngle += MOTOR_M3508_DGR2CODE(360 * 1 / 9.0 * 2);
+                trigger_target_angle_ += MOTOR_M3508_DGR2CODE(360 * 1 / 9.0 * 2);
                 trigger_block_until_ms_ = now_ms + t_ms_;
             }
         }
@@ -142,13 +140,13 @@ robot::framework::process_result Shooter_Logic_Node::process(robot::framework::f
                 {T_M1, D_Sixteenth},
             };
             Beep_PlayNotes(notes, 3);
-            shooter.triggerMotor.targetAngle -= MOTOR_M3508_DGR2CODE(360 * 1.5 / 9.0 * 2);
+            trigger_target_angle_ -= MOTOR_M3508_DGR2CODE(360 * 1.5 / 9.0 * 2);
             reverse_waiting_ = true;
             reverse_until_ms_ = now_ms + 500U;
         }
         else if (now_ms >= reverse_until_ms_)
         {
-            shooter.triggerMotor.targetAngle += MOTOR_M3508_DGR2CODE(360 * 0.5 / 9.0 * 2);
+            trigger_target_angle_ += MOTOR_M3508_DGR2CODE(360 * 0.5 / 9.0 * 2);
             shooter.command = IDLE;
             reverse_waiting_ = false;
         }
@@ -159,12 +157,14 @@ robot::framework::process_result Shooter_Logic_Node::process(robot::framework::f
     }
 
     shooter_output output{};
-    output.fric_target_speed[0] = shooter.fricMotor[0].targetSpeed;
-    output.fric_target_speed[1] = shooter.fricMotor[1].targetSpeed;
-    output.trigger_target_angle = shooter.triggerMotor.targetAngle;
-    output.command = shooter.command;
-    output.triggering_id = shooter.triggeringId;
+    output.fric_target_speed[0] = fric_target_speed[0];
+    output.fric_target_speed[1] = fric_target_speed[1];
+    output.trigger_target_angle = trigger_target_angle_;
     output.sampled_at_us = context.timestamp_us;
+
+    // 跨任务交付：Motor 任务从邮箱取摩擦轮/拨弹目标。
+    shooter_output_mailbox().publish(output, context.timestamp_us);
+
     output_.publish(context.frame_id, output);
 
     return robot::framework::process_result::ok;

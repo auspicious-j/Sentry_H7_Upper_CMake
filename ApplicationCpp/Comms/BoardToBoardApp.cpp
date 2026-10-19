@@ -16,6 +16,10 @@ extern "C"
 // 平台层中断路由：本文件不再定义 HAL 的共享弱符号回调，只登记自己的处理函数。
 #include "IrqDispatch.hpp"
 
+// 云台控制量（大 yaw 速度指令）来自 Gimbal 任务的跨任务邮箱。
+#include "GimbalControlMailbox.hpp"
+#include "ChassisOutputMailbox.hpp"
+
 extern DMA_HandleTypeDef hdma_usart2_rx;
 float chassis_yaw = 0;
 
@@ -55,10 +59,14 @@ void B2B_Init()
 
 void B2B_Transmit()
 {
+	// 四舵轮目标值与当前舵角由 Chassis 任务的 Kinematics_Node 通过邮箱发布。
+	robot::framework::timed_snapshot<robot::Chassis::chassis_output> chassis_output{};
+	robot::Chassis::chassis_output_mailbox().copy_to(chassis_output);
+
 	usart2TxBuf[0] = 0xAA;				 // 帧头
 	for(uint8_t i = 0; i < 4; i++)
 	{
-		float v = chassis.motors[i].targetTurnAngle - chassis.motors[i].now_angle;   // 要发送的那个 float
+		float v = chassis_output.value.target_turn_angle_deg[i] - chassis_output.value.now_turn_angle_deg[i];   // 要发送的那个 float
 		uint8_t *p = (uint8_t *)&v;
 		usart2TxBuf[1 + 4*i] = p[0];
 		usart2TxBuf[2 + 4*i] = p[1];
@@ -67,12 +75,14 @@ void B2B_Transmit()
 	} //1-16 舵电机误差角度
 	for (uint8_t i = 0; i < 4; i++)
 	{
-		usart2TxBuf[17 + i * 2] = chassis.motors[i].targetDriveSpeed;
-		usart2TxBuf[17 + i * 2 + 1] = chassis.motors[i].targetDriveSpeed >> 8;
+		usart2TxBuf[17 + i * 2] = (uint8_t)chassis_output.value.target_drive_speed[i];
+		usart2TxBuf[17 + i * 2 + 1] = (uint8_t)(chassis_output.value.target_drive_speed[i] >> 8);
 	} // 17-24 轮电机目标速度
 	{
-		float v = gimbal.base_yaw.imuPID.output;   // 要发送的那个 float
-		v = gimbal.base_yaw.imuPID.outer.output;
+		// 大 yaw 速度指令由 Gimbal 任务的 Control_Node 通过邮箱发布。
+		robot::framework::timed_snapshot<robot::Gimbal::gimbal_control> control{};
+		robot::Gimbal::gimbal_control_mailbox().copy_to(control);
+		float v = control.value.base_yaw_speed_cmd;   // 要发送的那个 float
 		uint8_t *p = (uint8_t *)&v;
 		usart2TxBuf[25] = p[0];
 		usart2TxBuf[26] = p[1];

@@ -24,8 +24,10 @@ extern "C"
 
 #include "VisionLink.hpp"
 #include "VisionTargetMailbox.hpp"
+#include "GimbalStateMailbox.hpp"
 
-VisionTransmit vision_transmit;
+// 只被 Vision 任务本文件使用：不需要外部可见，因此是 static（不再通过 Vision.h 暴露）。
+static VisionTransmit vision_transmit;
 
 // 视觉接收链路已迁移到 Io/Vision：
 //   USB 中断 -> VisionLink_OnUsbReceive() -> VisionTask 中的 VisionLink_Poll()
@@ -36,10 +38,14 @@ VisionTransmit vision_transmit;
 // vision打包+发送
 static void Vision_DataTransmit(void)
 {
+    // 云台测量量由 Gimbal 任务的 State_Node 通过邮箱发布（以前读 gimbal.* 全局）。
+    robot::framework::timed_snapshot<robot::Gimbal::gimbal_state> gimbal_state{};
+    robot::Gimbal::gimbal_state_mailbox().copy_to(gimbal_state);
+
     vision_transmit.header = VISION_FRAME_HEADER_TX;
     vision_transmit.detect_color = !USER_JudgeData.self_color; // 打红0 打蓝1
     vision_transmit.mode = 0; //0为打装甲板 1为打符
-    vision_transmit.top_yaw = gimbal.top_yaw.totalAngle;
+    vision_transmit.top_yaw = gimbal_state.value.top_yaw_total_deg;
     vision_transmit.pitch = INS.pitch;
     vision_transmit.roll = INS.roll;
     vision_transmit.diff_yaw = (gimbal.top_yawMotor.angle - TOP_YAW_OFFSET) / 8192.0f * 360.0f;
