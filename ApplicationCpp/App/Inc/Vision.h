@@ -136,9 +136,7 @@ typedef struct {
     uint8_t shooterCommand;
 } VisionTarget;
 
-extern VisionReceive vision_receive;
 extern VisionTransmit vision_transmit;
-extern VisionTarget vision_target;
 
 void Vision_DataReceive(uint8_t *read_from_usart, uint32_t length);
 

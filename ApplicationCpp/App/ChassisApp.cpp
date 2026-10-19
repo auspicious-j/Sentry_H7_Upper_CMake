@@ -14,8 +14,6 @@ extern "C"
 #include <math.h>
 }
 
-float vx, vy, vw;  //AI传来的旋转速度
-
 Chassis_t chassis = {0};
 
 // 底盘初始值配置
@@ -91,193 +89,14 @@ void Chassis_UpdateSlope()
     chassis.move.maxVw = WHEELSPEED_MAX / rotateRatio / 60.0f / (268.f / 17.f) * 2.0f * PI * chassis.info.wheelRadius * 1.0f / 1.414f;
 }
 
-// 底盘模式控制
-void Chassis_ModeControl()
-{
-    // 左拨杆拨到下方进入小陀螺，拨回来进入跟随模式
-    if (chassis.rotate.mode != ChassisMode_Spin && rcInfo.left == 2 )
-        chassis.rotate.mode = ChassisMode_Spin;
-    else if (chassis.rotate.mode == ChassisMode_Spin && rcInfo.left == 3)
-        chassis.rotate.mode = ChassisMode_Follow;
-    
-    switch (rcInfo.right)
-    {
-    case 3:
-        chassis.pattern = Chassis_AI;
-    break;
-    case 1:
-        chassis.pattern = Chassis_Control;
-    default:
-        break;
-    }
-
-    if (chassis.pattern == Chassis_AI)
-    {
-        if(!vision_receive.spin_mode)//AI确定模式
-            chassis.rotate.mode = ChassisMode_Spin;
-        else
-            chassis.rotate.mode = ChassisMode_Follow;
-    }
-}
-
-// 底盘任务回调函数
-void Task_Chassis_Callback()
-{
-    chassis.rotate.InitAngle = ModularDegreeTowards(INIT_YAW_ANGLE, 0.0f);
-    
-    chassis.rotate.nowAngle = gimbal.base_yawMotor.nowAngle;
-    chassis.rotate.relativeAngle = chassis.rotate.nowAngle - chassis.rotate.InitAngle;  //解算云台与底盘的夹角
-
-    Chassis_ModeControl();
-
-    if (chassis.pattern == Chassis_AI )
-    {
-        Slope_SetTarget(&chassis.move.xSlope,1.5f * vx); //x为前后
-        Slope_SetTarget(&chassis.move.ySlope,1.5f * vy);
-        float gimbalAngleSin=sin(-chassis.rotate.relativeAngle*PI/180);
-        float gimbalAngleCos=cos(-chassis.rotate.relativeAngle*PI/180);
-        chassis.move.vx=-(Slope_GetVal(&chassis.move.xSlope) * gimbalAngleCos + Slope_GetVal(&chassis.move.ySlope) * gimbalAngleSin);
-        chassis.move.vy=(-Slope_GetVal(&chassis.move.xSlope) * gimbalAngleSin + Slope_GetVal(&chassis.move.ySlope) * gimbalAngleCos);
-        Chassis_UpdateSlope();
-
-        if (vision_receive.spin_mode == 0)
-            chassis.rotate.mode = ChassisMode_Follow;
-        else
-            chassis.rotate.mode = ChassisMode_Spin;    
-    }
-    else
-    {
-        Slope_SetTarget(&chassis.move.xSlope,-(float)rcInfo.ch3*chassis.move.maxVx/660);
-        Slope_SetTarget(&chassis.move.ySlope,(float)rcInfo.ch4*chassis.move.maxVy/660);
-        // 将云台坐标系下平移速度解算到底盘平移速度(根据云台偏离角)
-        float gimbalAngleSin=sin(-chassis.rotate.relativeAngle*PI/180);
-        float gimbalAngleCos=cos(-chassis.rotate.relativeAngle*PI/180);
-        chassis.move.vx=-(Slope_GetVal(&chassis.move.xSlope) * gimbalAngleCos + Slope_GetVal(&chassis.move.ySlope) * gimbalAngleSin);
-        chassis.move.vy=(-Slope_GetVal(&chassis.move.xSlope) * gimbalAngleSin + Slope_GetVal(&chassis.move.ySlope) * gimbalAngleCos);
-        Chassis_UpdateSlope();
-    }
-
-        // 旋转相关内容
-    if (chassis.rotate.mode == ChassisMode_Follow) 
-    {
-        Slope_SetTarget(&chassis.move.spinSlope, 0);
-        chassis.rotate.relativeAngle = ModularDegreeTowards(chassis.rotate.relativeAngle, 0.0f);
-
-        if (chassis.pattern==Chassis_Control)
-        {
-            PID_SingleCalc(&chassis.rotate.pid, 0, -chassis.rotate.relativeAngle);
-					
-            chassis.move.vw = chassis.rotate.pid.output + chassis.move.spinSlope.value;
-            LIMIT(chassis.move.vw, -chassis.move.maxVw, chassis.move.maxVw);
-        }
-        else
-        {
-            if (vision_receive.align_mode == 1)
-            {
-                float target = -chassis.rotate.align_yaw;
-                float feedback = ModularDegreeTowards(-chassis.rotate.relativeAngle, target);
-
-                PID_SingleCalc(&chassis.rotate.pid, target, feedback);
-                chassis.move.vw = chassis.rotate.pid.output + chassis.move.spinSlope.value;
-                LIMIT(chassis.move.vw, -chassis.move.maxVw, chassis.move.maxVw);
-            }
-            else
-            {
-                chassis.move.vw = vw;
-                LIMIT(chassis.move.vw, -chassis.move.maxVw, chassis.move.maxVw);
-            }
-        }
-    }
-    else if (chassis.rotate.mode == ChassisMode_Spin) //小陀螺模式
-    {
-        chassis.move.vw = chassis.move.spinSlope.value;
-        float ratio;
-
-        if (chassis.pattern == Chassis_Control)
-        {
-            if (fabsf(Slope_GetVal(&chassis.move.xSlope)) / chassis.move.maxVx + fabsf(Slope_GetVal(&chassis.move.ySlope)) / chassis.move.maxVy > 0.05f)
-                ratio = 0.6f;        
-            else
-                ratio = 1.0f;
-            
-            Slope_SetTarget(&chassis.move.spinSlope, chassis.move.maxVw * ratio);
-        }
-        else
-        {
-            ratio = 0.5;
-        }
-        
-        Slope_SetTarget(&chassis.move.spinSlope, chassis.move.maxVw * ratio);
-    }
- 
-//检测当前角度
-    for (uint8_t i = 0; i < 4; i++)
-    {
-        chassis.motors[i].now_angle = ModularDegreeTowards(chassis.motors[i].TurnAngle - chassis.motors[i].TurnOffset, 0.0f);
-    }
-
-    /***解算各轮子转速****/
-    float rotateRatio[4];
-    rotateRatio[0] = 1.414f * (chassis.info.wheelbase + chassis.info.wheeltrack) / 4.0f - chassis.info.offsetY * fabs(chassis.move.spinSlope.value) / chassis.move.maxVw + chassis.info.offsetX * fabs(chassis.move.spinSlope.value) / chassis.move.maxVw;
-    rotateRatio[1] = 1.414f * (chassis.info.wheelbase + chassis.info.wheeltrack) / 4.0f - chassis.info.offsetY * fabs(chassis.move.spinSlope.value) / chassis.move.maxVw - chassis.info.offsetX * fabs(chassis.move.spinSlope.value) / chassis.move.maxVw;
-    rotateRatio[2] = 1.414f * (chassis.info.wheelbase + chassis.info.wheeltrack) / 4.0f + chassis.info.offsetY * fabs(chassis.move.spinSlope.value) / chassis.move.maxVw + chassis.info.offsetX * fabs(chassis.move.spinSlope.value) / chassis.move.maxVw;
-    rotateRatio[3] = 1.414f * (chassis.info.wheelbase + chassis.info.wheeltrack) / 4.0f + chassis.info.offsetY * fabs(chassis.move.spinSlope.value) / chassis.move.maxVw - chassis.info.offsetX * fabs(chassis.move.spinSlope.value) / chassis.move.maxVw;
-    
-    float wheelvx[4], wheelvy[4];
-    
-    // 左前
-    wheelvx[0] = chassis.move.vx + chassis.move.vw * rotateRatio[1] / 1.414f;
-    wheelvy[0] = chassis.move.vy + chassis.move.vw * rotateRatio[1] / 1.414f;
-    // 右前
-    wheelvx[1] = chassis.move.vx + chassis.move.vw * rotateRatio[2] / 1.414f;
-    wheelvy[1] = chassis.move.vy - chassis.move.vw * rotateRatio[2] / 1.414f;
-    // 左后
-    wheelvx[2] = chassis.move.vx - chassis.move.vw * rotateRatio[0] / 1.414f;
-    wheelvy[2] = chassis.move.vy + chassis.move.vw * rotateRatio[0] / 1.414f;
-    // 右后
-    wheelvx[3] = chassis.move.vx - chassis.move.vw * rotateRatio[3] / 1.414f;
-    wheelvy[3] = chassis.move.vy - chassis.move.vw * rotateRatio[3] / 1.414f;
-
-    //    舵轮解算
-    for (uint8_t i = 0; i < 4; i++)
-    {
-        float target_angle;
-        int32_t wheelRPM = -hypotf(wheelvx[i], wheelvy[i]) * 60 / (2 * PI * chassis.info.wheelRadius) * (268.f / 17.f);
-
-        if (wheelRPM != 0)
-        {
-            target_angle = atan2f(-wheelvy[i], wheelvx[i]) / PI * 180;
-        }
-        else //当目标速度为0 且电机速度已经减下来时  舵回到正常角度
-        {
-            static const float default_angle[4] = {135, 45, 45, 135};
-            target_angle = default_angle[i];
-        }
-
-        target_angle = ModularDegreeTowards(target_angle, chassis.motors[i].now_angle);
-        
-        if (target_angle - chassis.motors[i].now_angle >= 90)
-        {
-            target_angle -= 180.0f;
-            wheelRPM *= -1.0f;
-        }
-        else if (target_angle - chassis.motors[i].now_angle < -90)
-        {
-            target_angle += 180.0f;
-            wheelRPM *= -1.0f;
-        }
-
-        chassis.motors[i].targetTurnAngle = target_angle;
-        chassis.motors[i].targetDriveSpeed = wheelRPM;
-    }
-}
+/*************底盘操控任务******************/
 
 extern "C" void OS_ChassisCallback(void const * argument)
 {
     osDelay(500);
     Chassis_Init();
 
-    // 迁移后：业务由 C++ 插件图执行；旧 Task_Chassis_Callback 保留作参考，不再调用。
+    // 业务由 C++ 插件图执行；旧的 Task_Chassis_Callback / Chassis_ModeControl 已删除。
     AppCpp_Chassis_Init();
 
     for(;;)

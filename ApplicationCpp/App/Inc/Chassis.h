@@ -65,7 +65,6 @@ typedef struct _Chassis
 } Chassis_t;
 
 extern Chassis_t chassis;
-extern float vx,vy,vw;
 
 // 初始化与解算入口（定义在 Chassis.c；插件图节点与任务驱动会调用）。
 void Chassis_Init(void);

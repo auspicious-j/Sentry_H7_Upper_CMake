@@ -29,7 +29,7 @@ C 侧全局量 + CAN / UART / USB   由原有 C 代码继续下发，不经过�
 | `Platform/STM32/` | DWT 微秒时钟、profiler、PRIMASK 临界区 | 否 |
 | `Comms/` | 遥控器接收、板间通信（原 `UserMiddlewares`） | 是 |
 | `Drivers/` | 电机驱动、设备检测（原 `UserMiddlewares`） | 是 |
-| `App/` | 各任务入口 `OS_*Callback` + 迁移期保留的旧实现 | 有（旧实现不调用） |
+| `App/` | 各任务入口 `OS_*Callback` + C 侧初始化 `*_Init` | 有（仅初始化） |
 
 ## 2. 任务与周期
 
@@ -194,7 +194,7 @@ Chassis_Input_Node / B2B_Transmit    直接读原始帧快照（AI 速度、哨�
 | `Framework/ComparisonTypes.hpp`、`Framework/OutputComparison.hpp` | 零引用 | 通用结果对比接口，无任何包含者 |
 | `Framework/BranchMergeNode.hpp` | 零引用 | `branch_merge_node` 模板从未实例化 |
 | `SuperCapTask` / `OS_SuperCapCallback` | 空实现 | 仍是 `__weak` 桩 |
-| `App/*App.cpp` 的 `Task_Gimbal_Callback`、`Task_Chassis_Callback`、`Task_Shooter_Callback` | 保留、不调用 | 迁移对照用；`vision_receive` / `vision_target` 全局只为它们保留定义 |
+| ~~`Task_Gimbal_Callback` / `Task_Chassis_Callback` / `Task_Shooter_Callback`~~ | **已删除** | 连同只被它们调用的 `Gimbal_UpdataAngle`、`Gimbal_Scan`、`Gimbal_RockerControl`、`Shooter_RockerControl`、`Fric_RockerControl`、`Gimbal_Shooter_VisionControl`、`Chassis_ModeControl`、`Heat_Limit`，以及 `vision_receive` / `vision_target` 全局一起删除；业务逻辑只在 `Graph/` 里保留一份 |
 
 注意：`RobotApplication` 不在任何编译单元里，所以它注释中提到的 `g_robot_debug` 与 `ROBOT_ENABLE_*` 宏**都不存在于当前构建**。它 `#include` 的 `Gimbal_Graph_Config.h` 实际只定义三个容量宏（`ROBOT_MAX_PLUGIN_NODES` / `ROBOT_MAX_PLUGIN_EDGES` / `ROBOT_MAX_EXECUTION_PLANS`），没有裁剪开关。
 
@@ -203,5 +203,5 @@ Chassis_Input_Node / B2B_Transmit    直接读原始帧快照（AI 速度、哨�
 1. 高频图任务的优先级与周期约束未定义，抖动未评估（见 §2）。
 2. 「图 → C 全局 → 另一任务」的隐式边缺少帧号校验（见 §5）。
 3. `B2B_Transmit` 的 DMA 缓冲复用未做忙检查（见 §6）。
-4. §9 的死代码是否清理待定；`BranchMergeNode` / `OutputComparison` 要么接线要么删除，否则容易误判能力边界。
+4. `BranchMergeNode` / `OutputComparison` 仍为零引用（`App/` 的旧过程式实现已清理，见 §9）；要么接线要么删除，否则容易误判能力边界。
 5. `Framework/PluginGraph.hpp` 第 46 行注释说容量宏来自 `Config/robot_build_config.h`，该路径不存在（实际在 `Graph/Gimbal/Gimbal_Graph_Config.h`），属注释错引，待随源码修订一并更正。

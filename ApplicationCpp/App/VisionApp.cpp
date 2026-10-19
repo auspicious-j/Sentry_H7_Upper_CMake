@@ -26,15 +26,12 @@ extern "C"
 #include "VisionTargetMailbox.hpp"
 
 VisionTransmit vision_transmit;
-VisionReceive vision_receive;
-VisionTarget vision_target;
 
 // 视觉接收链路已迁移到 Io/Vision：
 //   USB 中断 -> VisionLink_OnUsbReceive() -> VisionTask 中的 VisionLink_Poll()
 //   -> vision_frame_mailbox() -> Gimbal 图的 Vision_Target_Node。
-// 旧的 Vision_DataReceive / Vision_UseData（在中断里直接写全局）已删除。
-// 说明：vision_receive / vision_target 仍保留定义，因为旧 GimbalApp.cpp 的
-//       未调用回调仍引用它们；新链路不再写这两个全局。
+// 旧的 Vision_DataReceive / Vision_UseData（在中断里直接写全局）已删除；
+// 只为旧回调保留的 vision_receive / vision_target 全局也已随死代码一并删除。
 
 // vision打包+发送
 static void Vision_DataTransmit(void)
