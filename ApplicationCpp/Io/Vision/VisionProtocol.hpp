@@ -87,6 +87,21 @@ struct vision_frame_snapshot {
     float base_yaw;            // 目标角度，度。
     float yaw;                 // 目标角度，度。
     float pitch;               // 目标角度，度。
+
+    // —— 打装甲板判定所需的原始字段（旧 Vision_UseArmor 使用）——
+    float armor_incident_yaw; // 装甲板入射角，度。
+    float armor_distance;     // 目标距离。
+    float armor_hit_radius;   // 命中半径。
+
+    // —— 打符判定所需的原始字段（旧 Vision_UseRune 使用）——
+    float rune_yaw[2];          // 两个符的角度，度。
+    float rune_pitch[2];        // 两个符的 pitch，度。
+    float rune_incident_yaw[2]; // 两个符的入射角，度。
+    float rune_distance[2];     // 两个符的距离。
+    float rune_hit_time[2];     // 两个符的命中延时，秒。
+    std::int8_t rune_id[2];     // 两个符的 id，-1 表示无效。
+    float rune_hit_radius;      // 符的命中半径。
+
     float linear_x;            // AI 底盘线速度指令（视觉坐标系）。
     float linear_y;
     float angular_z;
@@ -104,9 +119,12 @@ struct vision_frame_snapshot {
     std::uint16_t buy_projectile;
 };
 
+// 快照会放进 latest_snapshot_mailbox（上限 128B），这里提前锁定尺寸。
+static_assert(sizeof(vision_frame_snapshot) <= 128U,
+              "vision_frame_snapshot 超出快照邮箱的固定容量");
+
 // 把一次完整线上帧解码成领域快照（纯函数，无副作用）。
 vision_frame_snapshot decode_vision_frame(const vision_receive_wire& wire);
-
 // 字节流消帧器：状态只有“正在填充的帧 + 已填字节数”，无堆分配。
 // 用法：把每次收到的字节块喂给 feed()；返回 true 表示本次调用中至少解出
 // 一帧，产生的最后一帧通过 last_frame() 取用（同一块里出现多帧时取最新，

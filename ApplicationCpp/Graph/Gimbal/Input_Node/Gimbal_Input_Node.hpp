@@ -4,14 +4,22 @@
 #include "PluginNode.hpp"
 #include "Ports.hpp"
 #include "Gimbal_Types.hpp"
+#include "VisionTargetMailbox.hpp"
 
 namespace robot::Gimbal {
 
 // Input_Node：每帧把 C 侧输入整理成 gimbal_inputs 并发布。
-// 只做搬运，不做任何决策；所有读取都在 Io/Inputs 的短临界区内完成。
+// 只做搬运，不做任何决策；视觉目标由 Vision_Target_Node 通过端口提供。
 class Gimbal_Input_Node final : public robot::framework::plugin_node {
 public:
     explicit Gimbal_Input_Node(robot::framework::plugin_id id) : plugin_node(id) {}
+
+    // 组装期绑定视觉目标信号（由 Vision_Target_Node 发布）。
+    void bind_vision_target(
+        const robot::framework::frame_signal<robot::io::vision::vision_target_snapshot>& target)
+    {
+        vision_target_ = &target;
+    }
 
     // 下游读取本节点输出。
     const robot::framework::frame_signal<gimbal_inputs>& output() const { return output_; }
@@ -25,6 +33,7 @@ public:
     }
 
 private:
+    const robot::framework::frame_signal<robot::io::vision::vision_target_snapshot>* vision_target_{nullptr};
     robot::framework::frame_signal<gimbal_inputs> output_{};
 };
 

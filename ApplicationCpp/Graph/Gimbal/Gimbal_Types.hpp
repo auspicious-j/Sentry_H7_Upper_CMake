@@ -22,7 +22,7 @@ struct gimbal_inputs {
     robot::io::inputs::actuator_feedback feedback;
     robot::io::inputs::judge_snapshot judge;
 
-    // 视觉目标（迁移期读 C 侧 vision_target；后续切换为 Io/Vision 快照）。
+    // 视觉目标（由 Vision_Target_Node 通过端口提供）。
     bool vision_valid;
     float vision_base_yaw_deg;
     float vision_yaw_deg;
@@ -30,7 +30,7 @@ struct gimbal_inputs {
     std::int8_t vision_id_to_trigger;
     std::uint8_t vision_shooter_command;
 
-    // 视觉 AI 指令（迁移期读 C 侧 USER_SentryCmd）。
+    // 视觉 AI 指令（取自原始视觉帧快照 vision_frame_snapshot）。
     std::uint8_t ai_armor_mode;
     float ai_look_yaw_deg;
     float ai_look_pitch_deg;

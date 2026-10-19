@@ -16,7 +16,7 @@ namespace robot::Chassis {
 struct chassis_inputs {
     robot::io::inputs::rc_snapshot rc;
 
-    // 视觉 AI 指令（迁移期读 C 侧 vx/vy/vw 与 vision_receive）。
+    // 视觉 AI 指令（取自原始视觉帧快照 vision_frame_snapshot）。
     float vx;
     float vy;
     float vw;

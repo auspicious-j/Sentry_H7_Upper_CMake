@@ -11,6 +11,8 @@ extern "C"
 #include "Judge.h"
 }
 
+#include "VisionLink.hpp"
+
 extern DMA_HandleTypeDef hdma_usart2_rx;
 float chassis_yaw = 0;
 
@@ -58,7 +60,22 @@ void B2B_Transmit()
 		usart2TxBuf[28] = p[3];
 	}	//25-28 yaw电机目标速度
 
-	memcpy(&usart2TxBuf[29], &USER_SentryCmd, sizeof(USER_SentryCmd_t)); //29-35 哨兵自主指令
+	//29-35 哨兵自主指令：从视觉快照取最新值（无新帧时保留上一次，与旧全局语义一致）。
+	{
+		USER_SentryCmd_t sentry_command{};
+		robot::framework::timed_snapshot<robot::io::vision::vision_frame_snapshot> vision_copy{};
+		robot::io::vision::vision_frame_mailbox().copy_to(vision_copy);
+		sentry_command.sentry_mode = vision_copy.value.sentry_mode;
+		sentry_command.armor_mode = vision_copy.value.armor_mode;
+		sentry_command.look_yaw = vision_copy.value.look_yaw;
+		sentry_command.look_pitch = vision_copy.value.look_pitch;
+		sentry_command.energy_activation = vision_copy.value.energy_activation;
+		sentry_command.buy_projectile = vision_copy.value.buy_projectile;
+		sentry_command.buy_life = vision_copy.value.buy_life;
+		sentry_command.remote_buy_blood = vision_copy.value.remote_buy_blood;
+		sentry_command.remote_buy_bullet = vision_copy.value.remote_buy_bullet;
+		memcpy(&usart2TxBuf[29], &sentry_command, sizeof(sentry_command));
+	}
 
 	usart2TxBuf[62]  = STOPFLAG;    // 急停标志
 	usart2TxBuf[63] = 0xFE;				 // 帧尾

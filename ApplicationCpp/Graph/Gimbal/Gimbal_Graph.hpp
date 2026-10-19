@@ -8,6 +8,7 @@
 #include "STM32/Stm32Profiler.hpp"
 #include "Gimbal_Graph_Config.h"
 #include "Gimbal_Types.hpp"
+#include "Vision_Target_Node.hpp"
 #include "Gimbal_Input_Node.hpp"
 #include "Gimbal_Target_Node.hpp"
 #include "Gimbal_State_Node.hpp"
@@ -36,12 +37,13 @@ namespace robot::Gimbal
         robot::platform::stm32::stm32_profiler<ROBOT_MAX_PLUGIN_NODES> profiler_;
         robot::framework::frame_context frame_context_;
 
-        // 节点（ID 1..5，图内唯一）。
+        // 节点（ID 1..6，图内唯一）。
         Gimbal_Input_Node input_node_{1U};
         Gimbal_Target_Node target_node_{2U};
         Gimbal_State_Node state_node_{3U};
         Gimbal_Control_Node control_node_{4U};
         Gimbal_Output_Node output_node_{5U};
+        Vision_Target_Node vision_target_node_{6U};
 
         bool is_initialized_{false};
     };

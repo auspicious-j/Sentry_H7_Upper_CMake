@@ -20,6 +20,24 @@ vision_frame_snapshot decode_vision_frame(const vision_receive_wire& wire)
     snapshot.base_yaw = 0.0F;
     snapshot.yaw = 0.0F;
     snapshot.pitch = 0.0F;
+
+    // 打装甲板判定字段。
+    snapshot.armor_incident_yaw = 0.0F;
+    snapshot.armor_distance = 0.0F;
+    snapshot.armor_hit_radius = 0.0F;
+
+    // 打符判定字段：数组整体清零，id 显式置 -1。
+    for (int i = 0; i < 2; ++i)
+    {
+        snapshot.rune_yaw[i] = 0.0F;
+        snapshot.rune_pitch[i] = 0.0F;
+        snapshot.rune_incident_yaw[i] = 0.0F;
+        snapshot.rune_distance[i] = 0.0F;
+        snapshot.rune_hit_time[i] = 0.0F;
+        snapshot.rune_id[i] = -1;
+    }
+    snapshot.rune_hit_radius = 0.0F;
+
     snapshot.linear_x = wire.linear_x;
     snapshot.linear_y = wire.linear_y;
     snapshot.angular_z = wire.angular_z;
@@ -44,14 +62,25 @@ vision_frame_snapshot decode_vision_frame(const vision_receive_wire& wire)
         snapshot.base_yaw = wire.armor.base_yaw;
         snapshot.yaw = wire.armor.yaw;
         snapshot.pitch = wire.armor.pitch;
+        snapshot.armor_incident_yaw = wire.armor.incident_yaw;
+        snapshot.armor_distance = wire.armor.distance;
+        snapshot.armor_hit_radius = wire.armor.hit_radius;
         break;
 
     case k_mode_rune:
         // 旧逻辑会结合 shooter 触发状态与 IMU 角度挑目标并判定触发；这些
-        // 输入不属于协议层。这里先取第一个有效 id 作为跟踪目标，触发判定
-        // 留给后续的 target/shooter 节点（迁移计划中的 TODO）。
+        // 输入不属于协议层。这里保留全部原始字段，实际判定由
+        // Vision_Target_Node 完成（与旧 Vision_UseRune 逐行等价）。
+        snapshot.rune_hit_radius = wire.rune.hit_radius;
         for (int i = 0; i < 2; ++i)
         {
+            snapshot.rune_yaw[i] = wire.rune.yaw[i];
+            snapshot.rune_pitch[i] = wire.rune.pitch[i];
+            snapshot.rune_incident_yaw[i] = wire.rune.incident_yaw[i];
+            snapshot.rune_distance[i] = wire.rune.distance[i];
+            snapshot.rune_hit_time[i] = wire.rune.hit_time[i];
+            snapshot.rune_id[i] = wire.rune.id[i];
+
             if (wire.rune.id[i] != -1)
             {
                 snapshot.has_target = true;

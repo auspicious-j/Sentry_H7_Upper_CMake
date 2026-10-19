@@ -810,9 +810,9 @@
               <FilePath>..\ApplicationCpp\Graph\Gimbal\Input_Node\Gimbal_Input_Node.cpp</FilePath>
             </File>
             <File>
-              <FileName>Remote_Control_Node.cpp</FileName>
+              <FileName>Vision_Target_Node.cpp</FileName>
               <FileType>8</FileType>
-              <FilePath>..\ApplicationCpp\Graph\Gimbal\Input_Node\Remote_Control_Node.cpp</FilePath>
+              <FilePath>..\ApplicationCpp\Graph\Gimbal\Vision_Target_Node.cpp</FilePath>
             </File>
             <File>
               <FileName>Gimbal_Output_Node.cpp</FileName>
@@ -893,6 +893,11 @@
               <FileName>VisionProtocol.cpp</FileName>
               <FileType>8</FileType>
               <FilePath>..\ApplicationCpp\Io\Vision\VisionProtocol.cpp</FilePath>
+            </File>
+            <File>
+              <FileName>VisionTargetMailbox.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\ApplicationCpp\Io\Vision\VisionTargetMailbox.cpp</FilePath>
             </File>
           </Files>
         </Group>

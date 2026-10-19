@@ -1191,8 +1191,8 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\ApplicationCpp\Graph\Gimbal\Input_Node\Remote_Control_Node.cpp</PathWithFileName>
-      <FilenameWithoutPath>Remote_Control_Node.cpp</FilenameWithoutPath>
+      <PathWithFileName>..\ApplicationCpp\Graph\Gimbal\Vision_Target_Node.cpp</PathWithFileName>
+      <FilenameWithoutPath>Vision_Target_Node.cpp</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>

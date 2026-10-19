@@ -1,18 +1,8 @@
 #include "Chassis_Input_Node.hpp"
 
-#include "InterruptSnapshotLock.hpp"
-
-extern "C"
-{
-#include "Chassis.h"
-#include "Vision.h"
-}
+#include "VisionLink.hpp"
 
 namespace robot::Chassis {
-
-namespace {
-robot::platform::stm32::interrupt_snapshot_lock g_legacy_lock{};
-} // namespace
 
 robot::framework::process_result Chassis_Input_Node::process(robot::framework::frame_context& context)
 {
@@ -28,15 +18,15 @@ robot::framework::process_result Chassis_Input_Node::process(robot::framework::f
         inputs.wheel_speed[index] = feedback.wheel_speed[index];
     }
 
-    {
-        const robot::framework::snapshot_lock_guard guard(g_legacy_lock);
-        inputs.vx = vx;
-        inputs.vy = vy;
-        inputs.vw = vw;
-        inputs.spin_mode = vision_receive.spin_mode;
-        inputs.align_mode = vision_receive.align_mode;
-        inputs.align_yaw_deg = vision_receive.align_yaw;
-    }
+    // 视觉 AI 指令：直接取原始帧快照（无新帧时保留上一次的值，与旧全局语义一致）。
+    robot::framework::timed_snapshot<robot::io::vision::vision_frame_snapshot> vision_copy{};
+    robot::io::vision::vision_frame_mailbox().copy_to(vision_copy);
+    inputs.vx = -vision_copy.value.linear_y * 1000.0f;
+    inputs.vy = -vision_copy.value.linear_x * 1000.0f;
+    inputs.vw = vision_copy.value.angular_z;
+    inputs.spin_mode = vision_copy.value.spin_mode;
+    inputs.align_mode = vision_copy.value.align_mode;
+    inputs.align_yaw_deg = vision_copy.value.align_yaw;
 
     inputs.sampled_at_us = context.timestamp_us;
     output_.publish(context.frame_id, inputs);
