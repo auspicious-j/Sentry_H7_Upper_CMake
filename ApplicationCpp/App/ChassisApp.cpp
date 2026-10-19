@@ -18,7 +18,7 @@ float vx, vy, vw;  //AI传来的旋转速度
 
 Chassis_t chassis = {0};
 
-/********************初始化************************/
+// 底盘初始值配置
 void Chassis_Init()
 {
     // 底盘尺寸信息（用于解算轮速）
@@ -48,13 +48,15 @@ void Chassis_Init()
     Chassis_InitPID();
 }
 
+// 底盘PID值配置
 void Chassis_InitPID()
 {
     PID_Init(&chassis.rotate.pid, 0.25, 0, 6, 2, 15); // 15    PID_Init(&chassis.rotate.pid, 0.4, 0.001, 0.15, 0, 15); // 15
     PID_SetDeadzone(&chassis.rotate.pid, 0.1);
 }
 
-void Spin_SpeedUpdate() //
+// 小陀螺三轴速度最大值配置
+void Spin_SpeedUpdate()
 {
     chassis.move.maxVw = 3.25f; // chassis.move.maxPower * 0.225f + 3.25f
     if (chassis.move.maxVw <= 0.5f)
@@ -76,6 +78,7 @@ void Spin_SpeedUpdate() //
     }
 }
 
+// 斜坡更新
 void Chassis_UpdateSlope()
 {
     Slope_NextVal(&chassis.move.xSlope);
@@ -88,7 +91,7 @@ void Chassis_UpdateSlope()
     chassis.move.maxVw = WHEELSPEED_MAX / rotateRatio / 60.0f / (268.f / 17.f) * 2.0f * PI * chassis.info.wheelRadius * 1.0f / 1.414f;
 }
 
-
+// 底盘模式控制
 void Chassis_ModeControl()
 {
     // 左拨杆拨到下方进入小陀螺，拨回来进入跟随模式

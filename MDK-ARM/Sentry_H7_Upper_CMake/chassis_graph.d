@@ -1,0 +1,21 @@
+sentry_h7_upper_cmake/chassis_graph.o: \
+  ..\ApplicationCpp\Graph\Chassis\Chassis_Graph.cpp \
+  ..\ApplicationCpp\Graph\Chassis\Chassis_Graph.hpp \
+  ..\ApplicationCpp\Framework\PluginGraph.hpp \
+  ..\ApplicationCpp\Graph\Gimbal\Gimbal_Graph_Config.h \
+  ..\ApplicationCpp\Framework\PluginTypes.hpp \
+  ..\ApplicationCpp\Framework\IProfiler.hpp \
+  ..\ApplicationCpp\Framework\BranchSelector.hpp \
+  ..\ApplicationCpp\Framework\NodeTransitionContext.hpp \
+  ..\ApplicationCpp\Framework\PluginNode.hpp \
+  ..\Platform\STM32\Stm32Clock.hpp \
+  ..\Platform\STM32\..\..\ApplicationCpp\Platform\IClock.hpp \
+  ..\Platform\STM32\Stm32Profiler.hpp \
+  ..\Platform\STM32\..\..\ApplicationCpp\Framework\IProfiler.hpp \
+  ..\ApplicationCpp\Graph\Chassis\Chassis_Types.hpp \
+  ..\ApplicationCpp\Io\Inputs\RobotInputs.hpp \
+  ..\ApplicationCpp\Graph\Chassis\Input_Node\Chassis_Input_Node.hpp \
+  ..\ApplicationCpp\Framework\Ports.hpp \
+  ..\ApplicationCpp\Graph\Chassis\Mode_Node\Chassis_Mode_Node.hpp \
+  ..\ApplicationCpp\Graph\Chassis\Kinematics_Node\Chassis_Kinematics_Node.hpp \
+  ..\ApplicationCpp\Graph\Chassis\Chassis_GraphApi.h

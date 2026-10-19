@@ -14,7 +14,7 @@ extern "C"
 Queue noteQueue;//音符队列，存放将要播放的音符
 Note noteQueueBuf[MAX_NOTE_QUEUE_SIZE];//队列数据
 
-//蜂鸣器初始化
+//蜂鸣器嵌入式初始化
 void Beep_Init()
 {
     HAL_TIM_PWM_Start(&htim12,TIM_CHANNEL_2);

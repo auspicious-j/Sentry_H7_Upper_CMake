@@ -40,9 +40,10 @@ sentry_h7_upper_cmake/usbd_cdc_if.o: ..\USB_DEVICE\App\usbd_cdc_if.c \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_pcd_ex.h \
   ..\Middlewares\ST\STM32_USB_Device_Library\Core\Inc\usbd_core.h \
   ..\Middlewares\ST\STM32_USB_Device_Library\Core\Inc\usbd_ctlreq.h \
-  ..\Application\inc\vision.h ..\Application\inc\Shooter.h \
-  ..\Application\inc\Moto.h ..\UserMiddlewares\inc\USER_Moto.h \
-  ..\BSP\inc\bsp_can.h ..\Core\Inc\fdcan.h \
+  ..\ApplicationCpp\App\Inc\vision.h ..\ApplicationCpp\App\Inc\Shooter.h \
+  ..\ApplicationCpp\App\Inc\Moto.h \
+  ..\ApplicationCpp\Drivers\Inc\USER_Moto.h ..\BSP\inc\bsp_can.h \
+  ..\Core\Inc\fdcan.h \
   ..\Middlewares\Third_Party\FreeRTOS\Source\CMSIS_RTOS\cmsis_os.h \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\FreeRTOS.h \
   ..\Core\Inc\FreeRTOSConfig.h \
