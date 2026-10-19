@@ -155,7 +155,9 @@ Chassis_Input_Node / B2B_Transmit    直接读原始帧快照（AI 速度、哨�
 
 下板 → 上板 64 B（帧头 `0xAB`、帧尾 `0xFD`）：1–16 舵角、17–24 轮速、25–28 大 yaw 角度、29–58 裁判数据、62 `FEEDBACK`。
 
-接收链路：DMA（`DMA_NORMAL`）+ IDLE 中断 → `HAL_UARTEx_RxEventCallback` 调 `B2B_Receive()`，并在 `USART2_IRQHandler` 末尾无条件重新 arm。
+接收链路：DMA（`DMA_NORMAL`）+ IDLE 中断 → 平台层路由 `Platform/STM32/IrqDispatch`（全工程唯一的 `HAL_UARTEx_RxEventCallback`）按 `huart` 实例查表 → `b2b_uart_on_idle()` 调 `B2B_Receive()`；`USART2_IRQHandler` 末尾仍无条件重新 arm。
+
+遥控器走同一条路由：`RC_Init()` 登记 `huart5 → rc_uart_on_idle()`，`B2B_Init()` 登记 `huart2 → b2b_uart_on_idle()`。两个 Comms 模块不再互相引用，路由文件里也没有任何设备知识。
 
 已知脆弱点（记录现状，未修改）：发送复用同一个 `usart2TxBuf` 调 `HAL_UART_Transmit_DMA`，未检查上一次传输是否完成；接收在中断里直接读 `usart2RxBuf[0]/[63]`，不看长度。
 
@@ -168,6 +170,7 @@ Chassis_Input_Node / B2B_Transmit    直接读原始帧快照（AI 速度、哨�
 - 条件分支 `branch_selector` + `set_branch`，汇合边 `add_branch_dependency`；
 - 生命周期通知 `on_enter / on_exit / on_plan_changed`（默认空实现，旧节点无需改动）；
 - 帧级 profiler（`Platform/STM32/Stm32Profiler`）。
+- 中断入口路由（`Platform/STM32/IrqDispatch`）：HAL 的共享弱符号回调全工程只定义一份，只按实例查表转发，不含设备知识；新增 UART 时在自己的 `*_Init()` 里登记，不改路由文件（见 §6）。
 
 但三张图只用到了单计划 + 无条件分支：`set_plan_count(1U)`，而 `set_branch` / `add_plan_dependency` / `add_branch_dependency` / `request_plan` / `branch_merge_node` 在业务代码里一次都没被调用。这些能力属于「已实现、未接线」，不要当成在用。
 

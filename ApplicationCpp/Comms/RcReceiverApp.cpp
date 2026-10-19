@@ -9,6 +9,9 @@ extern "C"
 #include "USER_B2B.h"
 }
 
+// 平台层中断路由：本文件不再定义 HAL 的共享弱符号回调，只登记自己的处理函数。
+#include "IrqDispatch.hpp"
+
 
 uint8_t usart5RxBuf[25]; // 串口5缓冲区
 MC6C_RC_t rcInfo_MC6C = {0};//三个遥控器各自的接口
@@ -17,14 +20,25 @@ ET08_RC_t rcInfo_ET08 = {0};
 
 RC_TypeDef rcInfo = {0};//统一接口
 
-int rc_true_flag;
+// 写方在中断（rc_uart_on_idle），读方在 RcTask（断线看门狗），必须 volatile。
+volatile int rc_true_flag;
 
 extern DMA_HandleTypeDef hdma_usart2_rx;
 extern DMA_HandleTypeDef hdma_uart5_rx;
 
+// UART5 收完一帧（IDLE）后的处理：解析 → 统一接口 → 清看门狗 → 重新挂 DMA。
+// 由 Platform/STM32/IrqDispatch 按 huart 实例路由进来，本函数不再判断 huart。
+static void rc_uart_on_idle(std::uint16_t received_size);
 
+// 遥控器嵌入式初始化
 void RC_Init()
 {
+    // 先登记路由再开中断：顺序反了会丢掉第一帧。
+    // 登记失败（实例重复 / 路由表已满）时宁可不开 DMA，也不要在无人处理时收数据。
+    if (!robot::platform::stm32::irq_register_uart_rx(&huart5, rc_uart_on_idle))
+    {
+        return;
+    }
     HAL_UARTEx_ReceiveToIdle_DMA(&huart5, usart5RxBuf, sizeof(usart5RxBuf));
     __HAL_DMA_DISABLE_IT(&hdma_uart5_rx, DMA_IT_HT);
 }
@@ -231,29 +245,25 @@ void ET08_ToUnified(ET08_RC_t *rc_ET08, RC_TypeDef *rc)
     rc->lost = rc_ET08->lost;
 }
 
-// 串口5空闲中断回调
-extern "C" void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+// UART5 空闲中断后的处理（由 IrqDispatch 路由进来）。
+// 用哪种遥控器的解析由 USER_RC_TYPE 在编译期决定；USART2(板间) 的接收
+// 已由 BoardToBoardApp 自己登记，本函数不再涉及。
+static void rc_uart_on_idle(std::uint16_t received_size)
 {
-    if (huart == &huart2)
-	{
-	    B2B_Receive();
-	}
-    if (huart == &huart5)
-	{
-		#if (USER_RC_TYPE == USER_RC_TYPE_MC6C)
-		    MC6C_ParseSBUS(usart5RxBuf, &rcInfo_MC6C);
-		    MC6C_ToUnified(&rcInfo_MC6C, &rcInfo);
-		#elif (USER_RC_TYPE == USER_RC_TYPE_DR16)
-		    DR16_ParseSBUS(usart5RxBuf,&rcInfo_DR16);
-		    DR16_ToUnified(&rcInfo_DR16, &rcInfo);
-		#else
-		    ET08_ParseSBUS(usart5RxBuf, &rcInfo_ET08);
-		    ET08_ToUnified(&rcInfo_ET08, &rcInfo);
-		#endif
-	    rc_true_flag = 0;
-	    HAL_UARTEx_ReceiveToIdle_DMA(&huart5, usart5RxBuf, sizeof(usart5RxBuf));
-	    __HAL_DMA_DISABLE_IT(&hdma_uart5_rx, DMA_IT_HT);
-	}
+    (void)received_size; // 三种解析器各自按固定帧长解，这里不额外判长度（保持历史行为）。
+#if (USER_RC_TYPE == USER_RC_TYPE_MC6C)
+    MC6C_ParseSBUS(usart5RxBuf, &rcInfo_MC6C);
+    MC6C_ToUnified(&rcInfo_MC6C, &rcInfo);
+#elif (USER_RC_TYPE == USER_RC_TYPE_DR16)
+    DR16_ParseSBUS(usart5RxBuf, &rcInfo_DR16);
+    DR16_ToUnified(&rcInfo_DR16, &rcInfo);
+#else
+    ET08_ParseSBUS(usart5RxBuf, &rcInfo_ET08);
+    ET08_ToUnified(&rcInfo_ET08, &rcInfo);
+#endif
+    rc_true_flag = 0;
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart5, usart5RxBuf, sizeof(usart5RxBuf));
+    __HAL_DMA_DISABLE_IT(&hdma_uart5_rx, DMA_IT_HT);
 }
 
 void Task_RC_Callback()

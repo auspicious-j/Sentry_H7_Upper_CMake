@@ -13,6 +13,9 @@ extern "C"
 
 #include "VisionLink.hpp"
 
+// 平台层中断路由：本文件不再定义 HAL 的共享弱符号回调，只登记自己的处理函数。
+#include "IrqDispatch.hpp"
+
 extern DMA_HandleTypeDef hdma_usart2_rx;
 float chassis_yaw = 0;
 
@@ -26,9 +29,26 @@ uint32_t receive_times;
 /* 需要用到的发送变量*/
 uint8_t usart2TxBuf[64];
 
+namespace {
+
+// USART2 空闲中断后的处理：交给原有的接收解析函数。
+// 由 Platform/STM32/IrqDispatch 按 huart 实例路由进来，本函数不再判断 huart。
+void b2b_uart_on_idle(std::uint16_t received_size)
+{
+    (void)received_size;
+    B2B_Receive();
+}
+
+} // namespace
+
 // 板间通信初始化
 void B2B_Init()
 {
+    // 先登记路由再开中断：顺序反了会丢掉第一帧。
+    if (!robot::platform::stm32::irq_register_uart_rx(&huart2, b2b_uart_on_idle))
+    {
+        return;
+    }
     HAL_UARTEx_ReceiveToIdle_DMA(&huart2, usart2RxBuf, sizeof(usart2RxBuf));
     __HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_HT);
 }
