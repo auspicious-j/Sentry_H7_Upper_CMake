@@ -1191,7 +1191,7 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\ApplicationCpp\Graph\Gimbal\Vision_Target_Node.cpp</PathWithFileName>
+      <PathWithFileName>..\ApplicationCpp\Graph\Gimbal\Vision_Target_Node\Vision_Target_Node.cpp</PathWithFileName>
       <FilenameWithoutPath>Vision_Target_Node.cpp</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>

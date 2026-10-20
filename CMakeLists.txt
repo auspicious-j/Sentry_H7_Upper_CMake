@@ -114,6 +114,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Gimbal/State_Node
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Gimbal/Control_Node
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Gimbal/Output_Node
+    ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Gimbal/Vision_Target_Node
 
     # Graph/Chassis
     ${CMAKE_CURRENT_SOURCE_DIR}/ApplicationCpp/Graph/Chassis
