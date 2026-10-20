@@ -103,7 +103,7 @@ actuator_feedback read_actuator_feedback(std::uint64_t sampled_at_us)
         const robot::framework::snapshot_lock_guard guard(g_input_lock);
 
         snapshot.trigger_total_angle = shooter.triggerMotor.totalAngle;
-        snapshot.top_yaw_angle = gimbal.top_yawMotor.angle;
+        snapshot.top_yaw_motor_angle = gimbal.top_yawMotor.angle;
 
         for (std::uint8_t index = 0U; index < 4U; ++index)
         {

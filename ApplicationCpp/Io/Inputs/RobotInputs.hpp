@@ -42,8 +42,8 @@ struct rc_snapshot {
     std::int16_t ch3; // 左横。
     std::int16_t ch4; // 左竖。
     std::int16_t wheel;
-    std::uint8_t left;  // 左三挡开关。
-    std::uint8_t right; // 右三挡开关。
+    std::uint8_t left;  // 左三挡开关，132 上中下
+    std::uint8_t right; // 右三挡开关，132 上中下
     std::uint8_t left_last;
     std::uint8_t right_last;
     std::uint8_t lost;     // 失联标志。
@@ -76,9 +76,9 @@ struct judge_snapshot {
 // 执行机构反馈快照：只保留图里真正消费的字段（触发累计角、小 yaw 编码器、
 // 四轮舵角、大 yaw 角度）。其余电机量目前无人读，删掉以免整份拷贝时白白搬运。
 struct actuator_feedback {
-    std::int32_t trigger_total_angle; // 拨弹电机累计角度（Motor 任务更新）。
-    std::int16_t top_yaw_angle;       // 小 yaw 编码器（State 节点解算 base yaw）。
-    float wheel_turn_angle_deg[4];    // B2B：四轮舵角。
+    std::int32_t trigger_total_angle;  // 拨弹电机累计角度（Motor 任务更新）。
+    std::int16_t top_yaw_motor_angle;  // 小 yaw 电机编码器（State 节点解算 base yaw）。
+    float wheel_turn_angle_deg[4];     // B2B：四轮舵角。
     float base_yaw_angle_deg;         // B2B：大 yaw 角度。
     std::uint64_t sampled_at_us;
 };
