@@ -18,10 +18,20 @@ class Gimbal_State_Node final : public robot::framework::plugin_node {
 public:
     explicit Gimbal_State_Node(robot::framework::plugin_id id) : plugin_node(id) {}
 
-    void bind_inputs(const robot::framework::frame_signal<gimbal_inputs>& inputs) { inputs_ = &inputs; }
-    void bind_targets(const robot::framework::frame_signal<gimbal_targets>& targets) { targets_ = &targets; }
+    void bind_inputs(const robot::framework::frame_signal<gimbal_inputs>& inputs) 
+    { 
+        inputs_ = &inputs; 
+    }
 
-    const robot::framework::frame_signal<gimbal_state>& output() const { return output_; }
+    void bind_targets(const robot::framework::frame_signal<gimbal_targets>& targets) 
+    { 
+        targets_ = &targets; 
+    }
+
+    const robot::framework::frame_signal<gimbal_state>& output() const 
+    { 
+        return output_; 
+    }
 
     robot::framework::process_result process(robot::framework::frame_context& context) override;
 

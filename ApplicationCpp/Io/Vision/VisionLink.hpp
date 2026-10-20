@@ -15,18 +15,19 @@
 #include "SnapshotMailbox.hpp"
 #include "VisionProtocol.hpp"
 
-namespace robot::io::vision {
+namespace robot::io::vision 
+{
 
-// 视觉链路新鲜度阈值：超过该年龄的快照视为过期（视觉端正常约 100Hz）。
-inline constexpr std::uint64_t k_vision_link_ttl_us = 100000U; // 100ms
+    // 视觉链路新鲜度阈值：超过该年龄的快照视为过期（视觉端正常约 100Hz）。
+    inline constexpr std::uint64_t k_vision_link_ttl_us = 100000U; // 100ms
 
-// 视觉快照邮箱：生产者在 VisionTask 中发布，消费者在各自任务中读取。
-// 跨任务访问由邮箱内部的短临界区锁保证一致；读方应“整份复制后锁外判断”，
-// 并用 evaluate_snapshot(copy, now_us, k_vision_link_ttl_us) 得到新鲜度。
-robot::framework::latest_snapshot_mailbox<vision_frame_snapshot>& vision_frame_mailbox();
+    // 视觉快照邮箱：生产者在 VisionTask 中发布，消费者在各自任务中读取。
+    // 跨任务访问由邮箱内部的短临界区锁保证一致；读方应“整份复制后锁外判断”，
+    // 并用 evaluate_snapshot(copy, now_us, k_vision_link_ttl_us) 得到新鲜度。
+    robot::framework::latest_snapshot_mailbox<vision_frame_snapshot>& vision_frame_mailbox();
 
-// 环形缓冲因空间不足而整包丢弃的累计次数（诊断用）。
-std::uint32_t vision_link_overflow_count();
+    // 环形缓冲因空间不足而整包丢弃的累计次数（诊断用）。
+    std::uint32_t vision_link_overflow_count();
 
 } // namespace robot::io::vision
 

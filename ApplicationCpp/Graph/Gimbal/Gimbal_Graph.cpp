@@ -16,7 +16,7 @@ namespace robot::Gimbal
             return robot::framework::plugin_status::invalid_state;
         }
 
-        // 组装期绑定：下游持有上游信号的只读引用（图冻结前完成）。
+        // 组装
         input_node_.bind_vision_target(vision_target_node_.output());
         target_node_.bind_inputs(input_node_.output());
         target_node_.bind_state(state_node_.output());
@@ -28,7 +28,7 @@ namespace robot::Gimbal
 
         robot::framework::plugin_status status_ = robot::framework::plugin_status::ok;
 
-        // 注册节点（ID 1..6）。
+        // 注册节点
         if (status_ == robot::framework::plugin_status::ok)
         {
             status_ = graph_.add(input_node_);
@@ -54,7 +54,7 @@ namespace robot::Gimbal
             status_ = graph_.add(vision_target_node_);
         }
 
-        // 依赖边：Vision_Target → Input → Target → State → Control → Output。
+        // 依赖边
         if (status_ == robot::framework::plugin_status::ok)
         {
             status_ = graph_.add_dependency(vision_target_node_, input_node_);
@@ -76,6 +76,7 @@ namespace robot::Gimbal
             status_ = graph_.add_dependency(control_node_, output_node_);
         }
 
+        // 配置与启动
         if (status_ == robot::framework::plugin_status::ok)
         {
             status_ = graph_.set_plan_count(1U);

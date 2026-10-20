@@ -20,21 +20,23 @@
 
 #include "SnapshotMailbox.hpp"
 
-namespace robot::io::vision {
+namespace robot::io::vision 
+{
 
-// 一帧视觉瞄准结果（对应旧全局 VisionTarget，字段语义保持一致）。
-struct vision_target_snapshot {
-    bool is_valid;                 // 对应旧字段 vaild：本帧是否存在可跟踪目标。
-    float base_yaw;                // 大 yaw 目标角，度。
-    float yaw;                     // 小 yaw（目标）角度，度。
-    float pitch;                   // pitch 目标角，度。
-    std::int8_t id_to_trigger;     // 待触发符 id，-1 表示无。
-    std::uint8_t shooter_command;  // 发射请求（IDLE/TRIGGER/...，见 Shooter.h）。
-    std::uint32_t triggering_hit_tick; // 命中延时（ms），仅在识别到正在触发的符时有意义。
-};
+    // 一帧视觉瞄准结果
+    struct vision_target_snapshot 
+    {
+        bool is_valid;                      // 对应旧字段 vaild：本帧是否存在可跟踪目标。
+        float base_yaw;                     // 大 yaw 目标角，度。
+        float yaw;                          // 小 yaw（目标）角度，度。
+        float pitch;                        // pitch 目标角，度。
+        std::int8_t id_to_trigger;          // 待触发符 id，-1 表示无。
+        std::uint8_t shooter_command;       // 发射请求（IDLE/TRIGGER/...，见 Shooter.h）。
+        std::uint32_t triggering_hit_tick;  // 命中延时（ms），仅在识别到正在触发的符时有意义。
+    };
 
-// 全程序唯一的视觉瞄准结果邮箱。
-robot::framework::latest_snapshot_mailbox<vision_target_snapshot>& vision_target_mailbox();
+    // 全程序唯一的视觉瞄准结果邮箱。
+    robot::framework::latest_snapshot_mailbox<vision_target_snapshot>& vision_target_mailbox();
 
 } // namespace robot::io::vision
 

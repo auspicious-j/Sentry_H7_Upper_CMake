@@ -19,51 +19,55 @@
 #include "InterruptSnapshotLock.hpp"
 #include "Stm32Clock.hpp"
 
-namespace {
+// 
+namespace 
+{
 
-using robot::framework::latest_snapshot_mailbox;
-using robot::io::vision::vision_frame_parser;
-using robot::io::vision::vision_frame_snapshot;
-using robot::platform::stm32::interrupt_snapshot_lock;
-using robot::platform::stm32::stm32_clock;
+    using robot::framework::latest_snapshot_mailbox;
+    using robot::io::vision::vision_frame_parser;
+    using robot::io::vision::vision_frame_snapshot;
+    using robot::platform::stm32::interrupt_snapshot_lock;
+    using robot::platform::stm32::stm32_clock;
 
-// SPSC 环形缓冲容量：必须是 2 的幂，便于用掩码取模。
-// 视觉端约 100Hz × 88B ≈ 8.8KB/s，1KB 足以吸收 USB 包的突发。
-constexpr std::uint32_t k_ring_capacity = 1024U;
-constexpr std::uint32_t k_ring_mask = k_ring_capacity - 1U;
+    // SPSC 环形缓冲容量：必须是 2 的幂，便于用掩码取模。
+    // 视觉端约 100Hz × 88B ≈ 8.8KB/s，1KB 足以吸收 USB 包的突发。
+    constexpr std::uint32_t k_ring_capacity = 1024U;
+    constexpr std::uint32_t k_ring_mask = k_ring_capacity - 1U;
 
-std::uint8_t g_ring[k_ring_capacity]{};   // 环形缓冲本体。
-volatile std::uint32_t g_write_index{0U}; // 只由中断写。
-volatile std::uint32_t g_read_index{0U};  // 只由 VisionTask 写。
-volatile std::uint32_t g_overflow_count{0U}; // 整包丢弃次数（诊断用）。
+    std::uint8_t g_ring[k_ring_capacity]{};   // 环形缓冲本体。
+    volatile std::uint32_t g_write_index{0U}; // 只由中断写。
+    volatile std::uint32_t g_read_index{0U};  // 只由 VisionTask 写。
+    volatile std::uint32_t g_overflow_count{0U}; // 整包丢弃次数（诊断用）。
 
-// 中断通知目标：VisionTask 首次 Poll 时登记。
-volatile TaskHandle_t g_consumer_handle{nullptr};
+    // 中断通知目标：VisionTask 首次 Poll 时登记。
+    volatile TaskHandle_t g_consumer_handle{nullptr};
 
-// 快照邮箱及其同步后端。二者都在任务上下文使用（发布/复制），
-// 锁实现为极短的关中断临界区，满足 i_snapshot_lock 的约定。
-interrupt_snapshot_lock g_mailbox_lock{};
-latest_snapshot_mailbox<vision_frame_snapshot> g_vision_mailbox{g_mailbox_lock};
+    // 快照邮箱及其同步后端。二者都在任务上下文使用（发布/复制），
+    // 锁实现为极短的关中断临界区，满足 i_snapshot_lock 的约定。
+    interrupt_snapshot_lock g_mailbox_lock{};
+    latest_snapshot_mailbox<vision_frame_snapshot> g_vision_mailbox{g_mailbox_lock};
 
-stm32_clock g_clock{};           // 发布快照时打时间戳（DWT 微秒）。
-vision_frame_parser g_parser{};  // 消帧器状态（只在 VisionTask 访问）。
+    stm32_clock g_clock{};           // 发布快照时打时间戳（DWT 微秒）。
+    vision_frame_parser g_parser{};  // 消帧器状态（只在 VisionTask 访问）。
 
 } // namespace
 
-namespace robot::io::vision {
-
-latest_snapshot_mailbox<vision_frame_snapshot>& vision_frame_mailbox()
+namespace robot::io::vision 
 {
-    return g_vision_mailbox;
-}
 
-std::uint32_t vision_link_overflow_count()
-{
-    return g_overflow_count;
-}
+    latest_snapshot_mailbox<vision_frame_snapshot>& vision_frame_mailbox()
+    {
+        return g_vision_mailbox;
+    }
+
+    std::uint32_t vision_link_overflow_count()
+    {
+        return g_overflow_count;
+    }
 
 } // namespace robot::io::vision
 
+// 中断侧入口：把 USB 收到的原始字节搬进环形缓冲，并唤醒 VisionTask
 extern "C" void VisionLink_OnUsbReceive(const uint8_t* data, uint32_t length)
 {
     if ((data == nullptr) || (length == 0U))
@@ -98,6 +102,7 @@ extern "C" void VisionLink_OnUsbReceive(const uint8_t* data, uint32_t length)
     }
 }
 
+// 任务侧入口：取出环形缓冲中的全部字节喂给消帧器，解出完整帧后发布到快照邮箱
 extern "C" void VisionLink_Poll(void)
 {
     // 首次调用（VisionTask 上下文）登记为中断通知目标。

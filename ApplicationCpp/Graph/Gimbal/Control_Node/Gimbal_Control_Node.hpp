@@ -25,15 +25,25 @@ class Gimbal_Control_Node final : public robot::framework::plugin_node {
 public:
     explicit Gimbal_Control_Node(robot::framework::plugin_id id) : plugin_node(id) {}
 
-    void bind_inputs(const robot::framework::frame_signal<gimbal_inputs>& inputs) { inputs_ = &inputs; }
-    void bind_state(const robot::framework::frame_signal<gimbal_state>& state) { state_ = &state; }
+    // 组装
+    void bind_inputs(const robot::framework::frame_signal<gimbal_inputs>& inputs) 
+    { 
+        inputs_ = &inputs; 
+    }
+    void bind_state(const robot::framework::frame_signal<gimbal_state>& state) 
+    { 
+        state_ = &state; 
+    }
 
-    // 图编译完成后调用一次：初始化三组 PID（参数与旧 Gimbal_InitPID 完全一致）。
+    // 配置参数
     robot::framework::plugin_status configure() override;
 
     robot::framework::process_result process(robot::framework::frame_context& context) override;
 
-    void on_skipped(robot::framework::frame_context& context) override { (void)context; }
+    void on_skipped(robot::framework::frame_context& context) override 
+    { 
+        (void)context; 
+    }
 
 private:
     const robot::framework::frame_signal<gimbal_inputs>* inputs_{nullptr};

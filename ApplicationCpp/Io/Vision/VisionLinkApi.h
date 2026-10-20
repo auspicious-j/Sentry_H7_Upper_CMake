@@ -12,20 +12,21 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C" 
+{
 #endif
 
-// 中断侧入口：把 USB 收到的原始字节搬进环形缓冲，并唤醒 VisionTask。
-// 该函数不做任何解析，可在中断上下文安全调用。
-void VisionLink_OnUsbReceive(const uint8_t* data, uint32_t length);
+    // 中断侧入口：把 USB 收到的原始字节搬进环形缓冲，并唤醒 VisionTask。
+    // 该函数不做任何解析，可在中断上下文安全调用。
+    void VisionLink_OnUsbReceive(const uint8_t* data, uint32_t length);
 
-// 任务侧入口：取出环形缓冲中的全部字节喂给消帧器，解出完整帧后发布到
-// 快照邮箱。首次调用时自动登记当前任务为中断通知目标。
-void VisionLink_Poll(void);
+    // 任务侧入口：取出环形缓冲中的全部字节喂给消帧器，解出完整帧后发布到
+    // 快照邮箱。首次调用时自动登记当前任务为中断通知目标。
+    void VisionLink_Poll(void);
 
-// 任务侧等待：阻塞直到收到中断通知或超时（毫秒）。
-// 返回后应再次调用 VisionLink_Poll() 处理数据。
-void VisionLink_WaitData(uint32_t max_wait_ms);
+    // 任务侧等待：阻塞直到收到中断通知或超时（毫秒）。
+    // 返回后应再次调用 VisionLink_Poll() 处理数据。
+    void VisionLink_WaitData(uint32_t max_wait_ms);
 
 #ifdef __cplusplus
 }

@@ -33,9 +33,9 @@ struct chassis_inputs {
 };
 
 struct chassis_mode {
-    std::uint8_t pattern;     // Chassis_Control / Chassis_AI
-    std::uint8_t rotate_mode; // ChassisMode_Follow / ChassisMode_Spin
-    std::uint64_t sampled_at_us;
+    std::uint8_t pattern;     // AI控制标志位
+    std::uint8_t rotate_mode; // 小陀螺标志位
+    std::uint64_t sampled_at_us; // 本帧时间戳，便于下游做新鲜度判断。
 };
 
 // 运动学输出快照：跨任务交给 RS485 任务组 B2B 帧，不再写 C 侧 chassis.motors[]。

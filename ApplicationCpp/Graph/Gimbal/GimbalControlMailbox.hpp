@@ -20,10 +20,11 @@
 #include "Gimbal_Types.hpp"
 #include "SnapshotMailbox.hpp"
 
-namespace robot::Gimbal {
+namespace robot::Gimbal 
+{
 
-// 全程序唯一的云台控制量邮箱：Gimbal 任务发布，Motor / RS485 任务读取。
-robot::framework::latest_snapshot_mailbox<gimbal_control>& gimbal_control_mailbox();
+    // 全程序唯一的云台控制量邮箱：Gimbal 任务发布，Motor / RS485 任务读取。
+    robot::framework::latest_snapshot_mailbox<gimbal_control>& gimbal_control_mailbox();
 
 } // namespace robot::Gimbal
 

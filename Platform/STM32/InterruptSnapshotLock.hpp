@@ -28,43 +28,45 @@
 #endif
 #include "../../ApplicationCpp/Framework/SnapshotMailbox.hpp"
 
-namespace robot::platform::stm32 {
+namespace robot::platform::stm32 
+{
 
-// 单核 STM32 的短快照临界区；只保护复制，不做计算或阻塞。
-// 继承 robot::framework::i_snapshot_lock，是框架锁接口的平台实现；
-// final 表示不再被继承，便于编译器内联 lock()/unlock() 降低开销。
-class interrupt_snapshot_lock final : public robot::framework::i_snapshot_lock {
-public:
-    // lock()：保存当前 PRIMASK 并进入临界区。
-    // PRIMASK 是 Cortex-M 的中断屏蔽位：置 1 后，除 NMI 与 HardFault 之外的所有
-    // 可屏蔽异常都被挂起。这里先存档原值再关中断，是为了 unlock() 能精确还原，
-    // 而不是无脑开中断（可能外层本就处于关中断状态）。
-    // __DMB() 为内存屏障：保证屏障之前的内存访问先于其后访问完成，防止数据访问
-    // 被乱序，确保临界区内外观察到的内存顺序一致、写入对他方可见。
-    // 调用上下文：任务上下文调用；lock() 之后必须尽快 unlock()，其间禁止阻塞。
-    void lock() override
+    // 单核 STM32 的短快照临界区；只保护复制，不做计算或阻塞。
+    // 继承 robot::framework::i_snapshot_lock，是框架锁接口的平台实现；
+    // final 表示不再被继承，便于编译器内联 lock()/unlock() 降低开销。
+    class interrupt_snapshot_lock final : public robot::framework::i_snapshot_lock 
     {
-        saved_primask_ = __get_PRIMASK();
-        __disable_irq();
-        __DMB();
-    }
+    public:
+        // lock()：保存当前 PRIMASK 并进入临界区。
+        // PRIMASK 是 Cortex-M 的中断屏蔽位：置 1 后，除 NMI 与 HardFault 之外的所有
+        // 可屏蔽异常都被挂起。这里先存档原值再关中断，是为了 unlock() 能精确还原，
+        // 而不是无脑开中断（可能外层本就处于关中断状态）。
+        // __DMB() 为内存屏障：保证屏障之前的内存访问先于其后访问完成，防止数据访问
+        // 被乱序，确保临界区内外观察到的内存顺序一致、写入对他方可见。
+        // 调用上下文：任务上下文调用；lock() 之后必须尽快 unlock()，其间禁止阻塞。
+        void lock() override
+        {
+            saved_primask_ = __get_PRIMASK();
+            __disable_irq();
+            __DMB();
+        }
 
-    // unlock()：退出临界区并恢复进入前的中断状态。
-    // 先插一条内存屏障，保证临界区内对共享数据的写入有序且对其他执行流可见，
-    // 再通过 __set_PRIMASK 精确恢复 lock() 时保存的屏蔽状态（原先若已关中断则
-    // 保持关闭，避免误开中断带来的嵌套/重入问题）。
-    // 调用上下文：任务上下文，与 lock() 成对使用。
-    void unlock() override
-    {
-        __DMB();
-        __set_PRIMASK(saved_primask_);
-    }
+        // unlock()：退出临界区并恢复进入前的中断状态。
+        // 先插一条内存屏障，保证临界区内对共享数据的写入有序且对其他执行流可见，
+        // 再通过 __set_PRIMASK 精确恢复 lock() 时保存的屏蔽状态（原先若已关中断则
+        // 保持关闭，避免误开中断带来的嵌套/重入问题）。
+        // 调用上下文：任务上下文，与 lock() 成对使用。
+        void unlock() override
+        {
+            __DMB();
+            __set_PRIMASK(saved_primask_);
+        }
 
-private:
-    // 进入临界区前 PRIMASK 的原始值(0=中断开启，1=中断屏蔽)；
-    // 默认 0U 保证对象零初始化时处于“未加锁/中断开启”的合理初值。
-    uint32_t saved_primask_{0U}; // 进入前的 PRIMASK。
-};
+    private:
+        // 进入临界区前 PRIMASK 的原始值(0=中断开启，1=中断屏蔽)；
+        // 默认 0U 保证对象零初始化时处于“未加锁/中断开启”的合理初值。
+        uint32_t saved_primask_{0U}; // 进入前的 PRIMASK。
+    };
 
 } // namespace robot::platform::stm32
 #endif // robot_stm32_interrupt_snapshot_lock_hpp
