@@ -8,19 +8,21 @@
 
 #include "InterruptSnapshotLock.hpp"
 
-namespace {
+namespace 
+{
 
-robot::platform::stm32::interrupt_snapshot_lock g_shooter_output_lock{};
-robot::framework::latest_snapshot_mailbox<robot::Shooter::shooter_output>
-    g_shooter_output_mailbox{g_shooter_output_lock};
+    robot::platform::stm32::interrupt_snapshot_lock g_shooter_output_lock{};
+    robot::framework::latest_snapshot_mailbox<robot::Shooter::shooter_output>
+        g_shooter_output_mailbox{g_shooter_output_lock};
 
 } // namespace
 
-namespace robot::Shooter {
-
-robot::framework::latest_snapshot_mailbox<shooter_output>& shooter_output_mailbox()
+namespace robot::Shooter 
 {
-    return g_shooter_output_mailbox;
-}
+
+    robot::framework::latest_snapshot_mailbox<shooter_output>& shooter_output_mailbox()
+    {
+        return g_shooter_output_mailbox;
+    }
 
 } // namespace robot::Shooter

@@ -9,7 +9,7 @@
  *   - 旧实现每收到一帧视觉数据就在 USB 中断里重算一次 vision_target；
  *   - 本节点用“发布序号”检测新帧，只有新帧到达时才重算，其余帧保持上次结果，
  *     因此消费者看到的更新节奏与旧实现一致；
- *   - 旧的 shooter.triggeringHitTick 写入由本节点在识别到“正在触发的符”时提交。
+ *   - 旧的 shooter.expected_hit_delay_ms 写入由本节点在识别到“正在触发的符”时提交。
  * ========================================================================== */
 #include "Vision_Target_Node.hpp"
 
@@ -39,8 +39,8 @@ namespace robot::Gimbal
         struct shooter_vision_state
         {
             std::int8_t triggering_id;      // 正在触发的符 id，-1 表示无
-            std::uint32_t hit_at_tick[5];   // 每个符的命中延时（ms），shooter.hitAtTick 的快照
-            std::uint32_t now_ms;           // 当前时刻（ms），shooter.hitAtTick 的快照
+            std::uint32_t hit_at_tick[5];   // 每个符的命中延时（ms），shooter.expected_hit_at_tick 的快照
+            std::uint32_t now_ms;           // 当前时刻（ms），shooter.expected_hit_at_tick 的快照
         };
 
         robot::platform::stm32::interrupt_snapshot_lock g_shooter_lock{};
@@ -54,19 +54,19 @@ namespace robot::Gimbal
                 state.triggering_id = shooter.triggeringId;
                 for (std::uint32_t index = 0U; index < 5U; ++index)
                 {
-                    state.hit_at_tick[index] = shooter.hitAtTick[index];
+                    state.hit_at_tick[index] = shooter.expected_hit_at_tick[index];
                 }
             }
             state.now_ms = HAL_GetTick();
             return state;
         }
 
-        // 旧 Vision_UseRune 在识别到“正在触发的符”时会写 shooter.triggeringHitTick，
+        // 旧 Vision_UseRune 在识别到“正在触发的符”时会写 shooter.expected_hit_delay_ms，
         // 这里由本节点作为唯一写者提交。
         void commit_triggering_hit_tick(std::uint32_t hit_tick)
         {
             const robot::framework::snapshot_lock_guard guard(g_shooter_lock);
-            shooter.triggeringHitTick = hit_tick;
+            shooter.expected_hit_delay_ms = hit_tick;
         }
 
         // 搬运目标值并判断在不在攻击圆锥内

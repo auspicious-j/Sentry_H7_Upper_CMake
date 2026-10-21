@@ -49,7 +49,7 @@ static void Task_CANMotors_Callback()
 	    PID_SingleCalc(&shooter.fricMotor[0].speedPID,shooter_output.value.fric_target_speed[0],shooter.fricMotor[0].speed);
 	    PID_SingleCalc(&shooter.fricMotor[1].speedPID,shooter_output.value.fric_target_speed[1],shooter.fricMotor[1].speed);
 	    Motor_CalcAngle(&shooter.triggerMotor);
-	    PID_CascadeCalc(&shooter.triggerMotor.anglePID,shooter_output.value.trigger_target_angle,shooter.triggerMotor.totalAngle,shooter.triggerMotor.speed);
+	    PID_CascadeCalc(&shooter.triggerMotor.anglePID,shooter_output.value.trigger_target_total_angle,shooter.triggerMotor.totalAngle,shooter.triggerMotor.speed);
   	    mit_ctrl(&hfdcan2,0x01,0,control.value.pitch_outer_output,0,1.5,control.value.pitch_mit_torque); //mit速度环 自己写位置环 +力矩前馈
 	    USER_CAN_SetMotorCurrent(&hfdcan1,0x200,shooter.fricMotor[0].speedPID.output,shooter.fricMotor[1].speedPID.output,shooter.triggerMotor.anglePID.output,0);
 	    USER_CAN_SetMotorCurrent(&hfdcan2,0x1FF,control.value.top_yaw_current,0,0,0);

@@ -7,7 +7,7 @@ extern "C"
 
 // 发射业务状态归 Shooter_Logic_Node（configure() 初始化摩擦轮基准转速）；
 // 电机 PID 与累计角初始化归 Motor 任务。这里只保留 C 侧结构体定义与任务入口。
-Shooter shooter = { .idToTrigger = -1, .triggeringId = -1 };
+Shooter shooter = { .id_to_trigger = -1, .triggeringId = -1 };
 
 /*************发射机构任务******************/
 

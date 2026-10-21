@@ -71,7 +71,7 @@ C 侧全局量 + CAN / UART / USB   由原有 C 代码继续下发，不经过�
 | 2 | `Gimbal_Target_Node` | 决策：AI 视觉跟踪 / 扫描（装甲板匀速 + 正弦、前哨、符）/ 摇杆 / 摩擦轮边沿切换 |
 | 3 | `Gimbal_State_Node` | 角度状态更新（逐行对应旧 `Gimbal_UpdataAngle`）；`left==2` 时 base 目标 +45°（加弹）；测量量发布到 `gimbal_state_mailbox()` |
 | 4 | `Gimbal_Control_Node` | 小 yaw 串级、大 yaw 外环（取负 /1000）、pitch 位置环 + 重力前馈；小陀螺时改大 yaw 积分参数 |
-| 5 | `Gimbal_Output_Node` | 提交 `shooter.fricOpen/command/idToTrigger`（`gimbal.*.targetAngle` 已无读者，写入已删除） |
+| 5 | `Gimbal_Output_Node` | 提交 `shooter.fric_open/shooter_state/id_to_trigger`（`gimbal.*.targetAngle` 已无读者，写入已删除） |
 
 依赖边：`Vision_Target → Input → Target → State → Control → Output`。
 `Target` 读的是 `State` 的上一帧结果（`State` 在其之后执行），与旧 C 实现「先决策、后 `Gimbal_UpdataAngle`」一致。
@@ -88,7 +88,7 @@ C 侧全局量 + CAN / UART / USB   由原有 C 代码继续下发，不经过�
 
 | ID | 节点 | 职责 |
 | ---: | --- | --- |
-| 21 | `Shooter_Input_Node` | 裁判数据、执行器反馈、当前 `shooter.command/idToTrigger/fricOpen` 快照 |
+| 21 | `Shooter_Input_Node` | 裁判数据、执行器反馈、当前 `shooter.shooter_state/id_to_trigger/fric_open` 快照 |
 | 22 | `Shooter_Logic_Node` | 弹速自适应、摩擦轮目标、堵转反转判定、热量限制、拨弹到位记录 |
 
 三张图共同点：节点只做「读快照 / 算 / 发布」，不直接发 CAN、不碰 DMA、不跨图调用。
@@ -131,7 +131,7 @@ Chassis_Input_Node / B2B_Transmit    直接读原始帧快照（AI 速度、哨�
 
 | 写者 | 写的量 | 读方 |
 | --- | --- | --- |
-| `Gimbal_Output_Node` | `shooter.fricOpen/command/idToTrigger` | `Shooter_Input_Node` |
+| `Gimbal_Output_Node` | `shooter.fric_open/shooter_state/id_to_trigger` | `Shooter_Input_Node` |
 
 其余跨任务输出已改成显式邮箱：
 
@@ -231,11 +231,11 @@ Chassis_Input_Node / B2B_Transmit    直接读原始帧快照（AI 速度、哨�
 | `chassis.pattern`、`chassis.rotate.mode` | `Chassis_Mode_Node` | Gimbal 任务 | 跨任务 | `chassis_mode_mailbox()`；模式改为节点成员 | ✅ 已完成 |
 | `chassis.motors[].target*`、`now_angle` | `Chassis_Kinematics_Node` | `B2B_Transmit` | 跨任务 | `chassis_output_mailbox()`（新增当前舵角字段） | ✅ 已完成 |
 | `chassis.info`、`move.*`、`rotate.pid/relativeAngle/nowAngle/InitAngle`、`motors[].TurnOffset` | `Chassis_Kinematics_Node` | 同节点 | 图内 | 全部搬为节点私有成员；`Chassis_t` 只剩 `motors[4]` 硬件反馈 | ✅ 已完成 |
-| `shooter.fricMotor[].targetSpeed`、`triggerMotor.targetAngle` | `Shooter_Logic_Node` | `MotoApp` | 跨任务 | 目标速度走邮箱；拨弹目标角改为节点成员 `trigger_target_angle_`，C 侧字段删除 | ✅ 已完成 |
-| `shooter.fricOpen/command/idToTrigger` | `Gimbal_Output_Node` | `Shooter_Input_Node` | 跨图跨任务 | 「请求」与「状态」目前是同一个变量，拆开会影响状态机，需单独设计 | 待设计 |
+| `shooter.fricMotor[].targetSpeed`、`triggerMotor.targetAngle` | `Shooter_Logic_Node` | `MotoApp` | 跨任务 | 目标速度走邮箱；拨弹目标角改为节点成员 `trigger_target_total_angle_`，C 侧字段删除 | ✅ 已完成 |
+| `shooter.fric_open/shooter_state/id_to_trigger` | `Gimbal_Output_Node` | `Shooter_Input_Node` | 跨图跨任务 | 「请求」与「状态」目前是同一个变量，拆开会影响状态机，需单独设计 | 待设计 |
 | `shooter.fricSpd`、`bullet_speed`、`block` | `Shooter_Logic_Node` | 同节点 | 图内 | 已搬为节点私有成员（`fric_spd_`/`bullet_speed_`/`block_judge_cnt_` 等） | ✅ 已完成 |
 | `shooter.fricMotor[].speedPID`、`triggerMotor.anglePID` | `MotoApp` | `MotoApp` | Moto 任务私有 | 初始化已移入 `Motor_InitPIDs()`；对象仍由驱动类型持有 | 部分完成 |
-| `shooter.triggeringHitTick` | `Vision_Target_Node` | `Shooter_Logic_Node` | 跨任务**事件** | **不能**用 latest-value 邮箱，需事件位图/队列 | 待设计 |
+| `shooter.expected_hit_delay_ms` | `Vision_Target_Node` | `Shooter_Logic_Node` | 跨任务**事件** | **不能**用 latest-value 邮箱，需事件位图/队列 | 待设计 |
 | `*Motor.*`、`chassis.motors[].TurnAngle/now_Speed` | CAN / B2B 中断 | `read_actuator_feedback` | 硬件反馈 | 不动 | — |
 
 注意：mailbox 的语义是「最新值覆盖」。上表里只有「状态」适合邮箱；「事件」（命中时刻、单次触发脉冲）在消费者一个周期内被覆盖就会丢失，必须单独设计。

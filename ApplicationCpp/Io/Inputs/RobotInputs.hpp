@@ -51,8 +51,9 @@ struct rc_snapshot {
     std::uint64_t sampled_at_us;
 };
 
-// 裁判系统快照（对应 C 侧 USER_JudgeData，实际由下板通过 B2B 写入）。
-struct judge_snapshot {
+// 裁判系统快照
+struct judge_snapshot 
+{
     std::uint8_t game_progress;
     std::uint16_t remain_time_s;
     std::uint16_t current_hp;
@@ -73,13 +74,13 @@ struct judge_snapshot {
     std::uint64_t sampled_at_us;
 };
 
-// 执行机构反馈快照：只保留图里真正消费的字段（触发累计角、小 yaw 编码器、
-// 四轮舵角、大 yaw 角度）。其余电机量目前无人读，删掉以免整份拷贝时白白搬运。
-struct actuator_feedback {
-    std::int32_t trigger_total_angle;  // 拨弹电机累计角度（Motor 任务更新）。
-    std::int16_t top_yaw_motor_angle;  // 小 yaw 电机编码器（State 节点解算 base yaw）。
-    float wheel_turn_angle_deg[4];     // B2B：四轮舵角。
-    float base_yaw_angle_deg;         // B2B：大 yaw 角度。
+// 执行机构反馈快照
+struct actuator_feedback 
+{
+    std::int32_t trigger_total_angle;   // 拨弹电机累计角度（Motor 任务更新）。
+    std::int16_t top_yaw_motor_angle;   // 小 yaw 电机编码器（State 节点解算 base yaw）。
+    float wheel_turn_angle_deg[4];      // B2B：四轮舵角。
+    float base_yaw_angle_deg;           // B2B：大 yaw 角度。
     std::uint64_t sampled_at_us;
 };
 

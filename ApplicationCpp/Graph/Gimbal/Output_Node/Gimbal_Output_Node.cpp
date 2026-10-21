@@ -24,9 +24,9 @@ namespace robot::Gimbal
         // 只提交「跨任务」的发射请求。
         // 目标角不再写回 gimbal.*.targetAngle：全工程没有任何读者——控制节点直接
         // 从 gimbal_state 端口取目标值，不需要再经过 C 全局量转一手。
-        shooter.fricOpen = state.fric_open;
-        shooter.command = state.shooter_command;
-        shooter.idToTrigger = state.id_to_trigger;
+        shooter.fric_open = state.fric_open;
+        shooter.shooter_state = static_cast<Shooter_State_t>(state.shooter_command);
+        shooter.id_to_trigger = state.id_to_trigger;
 
         return robot::framework::process_result::ok;
     }

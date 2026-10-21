@@ -90,7 +90,7 @@ struct frame_context
 {
     uint32_t frame_id{k_invalid_frame_id}; // 帧序号：首个真实帧为 0，之后逐帧 +1；默认哨兵表示尚未开始任何帧。
     uint32_t period_us{1000U};      // 本帧周期，单位微秒(us)，默认 1000us = 1ms。
-    uint64_t timestamp_us{0U};      // 本帧时间戳，单位微秒(us)，通常来自 DWT 等高精度计时器。
+    uint64_t timestamp_us{0U};      // 本帧时间戳，单位微秒(us)
 };
 
 // 保存节点最近一次处理结果的快照

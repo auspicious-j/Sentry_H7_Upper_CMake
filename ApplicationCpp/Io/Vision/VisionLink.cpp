@@ -32,7 +32,7 @@ namespace
     // SPSC 环形缓冲容量：必须是 2 的幂，便于用掩码取模。
     // 视觉端约 100Hz × 88B ≈ 8.8KB/s，1KB 足以吸收 USB 包的突发。
     constexpr std::uint32_t k_ring_capacity = 1024U;
-    constexpr std::uint32_t k_ring_mask = k_ring_capacity - 1U;
+    constexpr std::uint32_t k_ring_mask = k_ring_capacity - 1U; 
 
     std::uint8_t g_ring[k_ring_capacity]{};   // 环形缓冲本体。
     volatile std::uint32_t g_write_index{0U}; // 只由中断写。
@@ -70,6 +70,7 @@ namespace robot::io::vision
 // 中断侧入口：把 USB 收到的原始字节搬进环形缓冲，并唤醒 VisionTask
 extern "C" void VisionLink_OnUsbReceive(const uint8_t* data, uint32_t length)
 {
+    // region 保护
     if ((data == nullptr) || (length == 0U))
     {
         return;
@@ -84,6 +85,7 @@ extern "C" void VisionLink_OnUsbReceive(const uint8_t* data, uint32_t length)
         ++g_overflow_count;
         return;
     }
+    // endregion
 
     for (std::uint32_t i = 0U; i < length; ++i)
     {
