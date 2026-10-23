@@ -1,0 +1,21 @@
+sentry_h7_upper_cmake/kalman_filter.o: \
+  ..\IMU\Algorithm\src\kalman_filter.c \
+  ..\IMU\Algorithm\inc\kalman_filter.h \
+  C:\Users\xuyif\AppData\Local\Arm\Packs\ARM\CMSIS-DSP\1.15.0\Include\dsp\matrix_functions.h \
+  C:\Users\xuyif\AppData\Local\Arm\Packs\ARM\CMSIS-DSP\1.15.0\Include\arm_math_types.h \
+  ..\Drivers\CMSIS\Include\cmsis_compiler.h \
+  ..\Drivers\CMSIS\Include\cmsis_armclang.h \
+  C:\Users\xuyif\AppData\Local\Arm\Packs\ARM\CMSIS-DSP\1.15.0\Include\arm_math_memory.h \
+  C:\Users\xuyif\AppData\Local\Arm\Packs\ARM\CMSIS-DSP\1.15.0\Include\dsp\none.h \
+  C:\Users\xuyif\AppData\Local\Arm\Packs\ARM\CMSIS-DSP\1.15.0\Include\dsp\utils.h \
+  C:\Users\xuyif\AppData\Local\Arm\Packs\ARM\CMSIS-DSP\1.15.0\Include\dsp\fast_math_functions.h \
+  C:\Users\xuyif\AppData\Local\Arm\Packs\ARM\CMSIS-DSP\1.15.0\Include\dsp\basic_math_functions.h \
+  ..\Middlewares\Third_Party\FreeRTOS\Source\include\FreeRTOS.h \
+  ..\Core\Inc\FreeRTOSConfig.h \
+  ..\Middlewares\Third_Party\FreeRTOS\Source\include\projdefs.h \
+  ..\Middlewares\Third_Party\FreeRTOS\Source\include\portable.h \
+  ..\Middlewares\Third_Party\FreeRTOS\Source\include\deprecated_definitions.h \
+  ..\Middlewares\Third_Party\FreeRTOS\Source\portable\RVDS\ARM_CM4F\portmacro.h \
+  ..\Middlewares\Third_Party\FreeRTOS\Source\include\mpu_wrappers.h \
+  ..\Middlewares\Third_Party\FreeRTOS\Source\include\task.h \
+  ..\Middlewares\Third_Party\FreeRTOS\Source\include\list.h

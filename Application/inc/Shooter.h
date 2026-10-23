@@ -1,0 +1,52 @@
+#ifndef _SHOOTER_H_
+#define _SHOOTER_H_
+
+#include "Moto.h"
+#include "USER_Moto.h"
+
+#include <stdbool.h>
+#include <stdint.h>
+
+enum
+{
+    IDLE = 0,
+    TRIGGER,
+    TRIGGER_REVERSE,
+    TRIGGER_CONTINUE,
+    TRIGGER_DOUBLE
+};
+
+typedef struct
+{
+    uint8_t command;
+
+    int8_t idToTrigger, triggeringId;
+    uint32_t triggeringHitTick, hitAtTick[5];
+	
+    DJI_Motor_t triggerMotor; // 拨弹电机和摩擦轮电机
+    DJI_Motor_t fricMotor[2];
+	
+    bool fricOpen;	  // 摩擦轮开启标志  0开1关
+
+    int16_t fricSpd;	  // 摩擦轮速度
+    float ave_bullet_speed;
+    float bullet_speed;
+
+    float distance;		 // 测距 用来补偿
+    float last_bullet_speed;
+    uint8_t box;
+	
+    struct
+	{
+	    uint16_t judgeCnt, reverseCnt; // 堵转判定计数器,反转计数器
+	    uint16_t fric_judgeCnt, fric_reverseCnt;
+	    bool state;
+	} block; // 堵转处理相关数据
+
+} Shooter;
+
+extern Shooter shooter;
+
+void Shooter_Init(void);
+
+#endif
