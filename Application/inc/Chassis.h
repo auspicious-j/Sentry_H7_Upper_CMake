@@ -2,7 +2,7 @@
 #define _CHASSIS_H_
 
 #include "main.h"
-#include "pid.h"
+#include "PID.h"   /* [LINUX-PORT] 原为 "pid.h"，Linux 文件系统区分大小写 */
 #include "Slope.h"
 #include "USER_Moto.h"
 

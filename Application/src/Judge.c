@@ -1,8 +1,8 @@
 #include "Judge.h"
 #include "string.h"
-#include "cRc.h"
+#include "Crc.h"            /* [LINUX-PORT] 原为 "cRc.h"，Linux 文件系统区分大小写 */
 #include "usart.h"
-#include "userfreertos.h"
+#include "UserFreertos.h"   /* [LINUX-PORT] 原为 "userfreertos.h"，Linux 文件系统区分大小写 */
 #include "usart.h"
 #include "USER_B2B.h"
 #include "myQueue.h"

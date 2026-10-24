@@ -1,98 +1,101 @@
-cmake_minimum_required(VERSION 3.22)
+#
+# [LINUX-PORT] 原生 Ubuntu (x86-64) 构建脚本
+#
+# 原工程使用 CMake + arm-none-eabi 工具链交叉编译 STM32H723 固件。
+# 移植后改为用系统 GCC 编译成原生可执行文件，不再产生 .elf/.bin 固件。
+#
+# 编译方法：
+#   cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+#   cmake --build build -j
+# 或直接执行 ./build.sh
+#
+cmake_minimum_required(VERSION 3.16)
 
-#
-# This file is generated only once,
-# and is not re-generated if converter is called multiple times.
-#
-# User is free to modify the file as much as necessary
-#
+project(sentry_upper_linux C)
 
-# Setup compiler settings
+# 原工程要求 C11
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
-
-# Define the build type
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug")
 endif()
 
-# Set the project name
-set(CMAKE_PROJECT_NAME Sentry_H7_Upper_CMake)
-
-# Enable compile command to ease indexing with e.g. clangd
+# 便于 clangd/VSCode 索引
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
-# Core project settings
-project(${CMAKE_PROJECT_NAME})
-message("Build type: " ${CMAKE_BUILD_TYPE})
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-# Enable CMake support for ASM and C languages
-enable_language(C ASM)
+add_executable(${PROJECT_NAME})
 
-# Create an executable object type
-add_executable(${CMAKE_PROJECT_NAME})
-
-# Add STM32CubeMX generated sources
-add_subdirectory(cmake/stm32cubemx)
-
-# Collect user sources
-file(GLOB_RECURSE USER_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/IMU/*.c"
+# ---------------------------------------------------------------------------
+# [LINUX-PORT] 业务层源码（与原工程保持一致，仅排除了硬件相关文件）
+# ---------------------------------------------------------------------------
+file(GLOB_RECURSE APPLICATION_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/Application/*.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/BSP/*.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/math/*.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/UserMiddlewares/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Application/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/IMU/src/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/IMU/Algorithm/src/*.c"
 )
 
-# Link directories setup
-target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined library search paths
+# [LINUX-PORT] BMI088 走 SPI 的真实驱动无法在 PC 上运行，
+# 改由 platform/linux/src/bmi088_sim.c 提供同名的 BMI088_init / BMI088_read。
+set(BMI088_HW_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/IMU/BMI088/BMI088Middleware.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/IMU/BMI088/BMI088driver.c"
+)
+list(REMOVE_ITEM APPLICATION_SOURCES ${BMI088_HW_SOURCES})
+
+# ---------------------------------------------------------------------------
+# [LINUX-PORT] 移植层源码
+# ---------------------------------------------------------------------------
+file(GLOB LINUX_PORT_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/platform/linux/src/*.c"
 )
 
-# Add sources to executable
-target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    ${USER_SOURCES}
+target_sources(${PROJECT_NAME} PRIVATE
+    ${APPLICATION_SOURCES}
+    ${LINUX_PORT_SOURCES}
 )
 
-# Add include paths
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined include paths
-    #IMU
-    ${CMAKE_CURRENT_SOURCE_DIR}/IMU/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/IMU/Algorithm/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/IMU/BMI088/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/IMU/Mahony/inc
-    
-    #BSP
-    ${CMAKE_CURRENT_SOURCE_DIR}/BSP/inc
-
-    #UserMiddlewares
-    ${CMAKE_CURRENT_SOURCE_DIR}/UserMiddlewares/inc
-
-    #Math
-    ${CMAKE_CURRENT_SOURCE_DIR}/math/inc
+# ---------------------------------------------------------------------------
+# [LINUX-PORT] 头文件路径
+# platform/linux/inc 放在最前面，用于覆盖原 Core/Inc 下的 HAL / CubeMX 头文件
+# ---------------------------------------------------------------------------
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/platform/linux/inc
 
     # Application
     ${CMAKE_CURRENT_SOURCE_DIR}/Application/inc
 
-    # CMSIS-DSP include paths   
-    ${CMAKE_SOURCE_DIR}/Middlewares/ST/ARM/dsp/Include
-    ${CMAKE_SOURCE_DIR}/Middlewares/ST/ARM/dsp/Inc
+    # BSP
+    ${CMAKE_CURRENT_SOURCE_DIR}/BSP/inc
+
+    # Math
+    ${CMAKE_CURRENT_SOURCE_DIR}/math/inc
+
+    # UserMiddlewares
+    ${CMAKE_CURRENT_SOURCE_DIR}/UserMiddlewares/inc
+
+    # IMU
+    ${CMAKE_CURRENT_SOURCE_DIR}/IMU/inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/IMU/Algorithm/inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/IMU/BMI088/inc
 )
 
-# Add project symbols (macros)
-target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined symbols
+# [LINUX-PORT] 原工程链接的是 ARM 版 libCMSISDSP.a，此处改为系统数学库
+target_link_libraries(${PROJECT_NAME} PRIVATE m pthread)
+
+target_compile_options(${PROJECT_NAME} PRIVATE
+    -Wall
+    -Wno-unused-parameter
+    -Wno-unused-variable
+    -Wno-unused-but-set-variable
 )
 
-# Remove wrong libob.a library dependency when using cpp files
-list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
-
-# Add linked libraries
-target_link_libraries(${CMAKE_PROJECT_NAME}
-    stm32cubemx
-    ${CMAKE_SOURCE_DIR}/Middlewares/ST/ARM/DSP/Lib/libCMSISDSP.a
-    # Add user defined libraries
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    LINUX_PORT=1
 )

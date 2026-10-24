@@ -1,4 +1,4 @@
-#include "cRc.h"
+#include "Crc.h" /* [LINUX-PORT] 原为 "cRc.h"，Linux 文件系统区分大小写 */
 
 #include <stdbool.h>
 

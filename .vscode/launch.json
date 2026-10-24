@@ -1,27 +1,25 @@
 {
-    // 使用 IntelliSense 了解相关属性。 
-    // 悬停以查看现有属性的描述。
-    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    // [LINUX-PORT] 原为 cortex-debug + OpenOCD 烧录调试，现改为本机 gdb 调试
     "version": "0.2.0",
     "configurations": [
         {
-            "cwd": "${workspaceRoot}",
-            "executable": "build/Debug/Sentry_H7_Upper_CMake.elf",
-            "name": "Debug with OpenOCD",
+            "name": "Debug Linux (gdb)",
+            "type": "cppdbg",
             "request": "launch",
-            "type": "cortex-debug",
-            "servertype": "openocd",
-            "configFiles": [
-                "interface/cmsis-dap.cfg",
-                "target/stm32h7x.cfg"
-            ],
-            "searchDir": [],
-            "runToEntryPoint": "main",
-            "showDevDebugOutput": "none",
-            "liveWatch": {
-                "enabled": true,
-                "samplesPerSecond": 4
-            }
+            "program": "${workspaceFolder}/build/Debug/sentry_upper_linux",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用 pretty-printer",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
         }
     ]
 }

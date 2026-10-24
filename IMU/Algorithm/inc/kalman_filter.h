@@ -28,6 +28,7 @@
 //#include "math.h"
 #include "stdint.h"
 #include "stdlib.h"
+#include "string.h"   /* [LINUX-PORT] kalman_filter.c / QuaternionEKF.c 使用 memcpy/memset，原工程依赖隐式声明 */
 #include "dsp/matrix_functions.h"
 #include "dsp/fast_math_functions.h"        
 

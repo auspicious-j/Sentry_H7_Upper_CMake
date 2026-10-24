@@ -3,7 +3,7 @@
 
 #include "USER_Moto.h"
 #include "stdbool.h"
-#include "slope.h"
+#include "Slope.h"   /* [LINUX-PORT] 原为 "slope.h"，Linux 文件系统区分大小写 */
 #include "PID.h"
 
 #define TOP_YAW_OFFSET 2710  //此处校准小yaw

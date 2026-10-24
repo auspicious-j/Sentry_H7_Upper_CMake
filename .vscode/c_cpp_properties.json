@@ -1,10 +1,12 @@
 {
+    // [LINUX-PORT] 原配置面向 STM32 + CubeIDE，现改为本机 GCC 索引
     "configurations": [
         {
-            "name": "STM32",
+            "name": "Linux",
             "compileCommands": "${workspaceFolder}/build/Debug/compile_commands.json",
-            "intelliSenseMode": "windows-msvc-x64",
-            "cppStandard": "c++17"
+            "intelliSenseMode": "linux-gcc-x64",
+            "cStandard": "c11",
+            "compilerPath": "/usr/bin/gcc"
         }
     ],
     "version": 4
