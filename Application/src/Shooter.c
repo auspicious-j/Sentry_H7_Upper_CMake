@@ -38,11 +38,12 @@ void Shooter_InitPID()
     PID_Init(&shooter.fricMotor[1].speedPID, 25, 0, 5, 0, 16000);
 }
 
+//! 永远返回true
 bool Heat_Limit()
 {
-    float d = 0.6; // 阈值
+    float d = 0.6; // 阈值//! 无用
 	(void)d;	   // 阈值
-    float k = 1;   // 防止浪费未使用热量,增加冷却缩减系数
+    float k = 1;   // 防止浪费未使用热量,增加冷却缩减系数	//! 作用仅限于转换变量类型
     if (JUDGE_GetRemainHeat() < 20)
 	{
 	    k = 5;
@@ -69,15 +70,19 @@ bool Heat_Limit()
 	}
 }
 
+// 发射主函数
 void Task_Shooter_Callback()
-{	
-    static uint8_t over_speed, down_speed=0;
+{
+    static uint8_t over_speed = 0;	// 过快计数器
+	static uint8_t down_speed = 0;	// 过慢计数器
+
 //    heat=JUDGE_GetRemainHeat();
-    if (USER_JudgeData.initial_speed > 10)
+    if (USER_JudgeData.initial_speed > 10)// 有效性检验
 	{
     	shooter.bullet_speed = USER_JudgeData.initial_speed;
 	}
 
+	// region 弹速闭环
     if (shooter.bullet_speed != shooter.last_bullet_speed) // 收到弹速消息
 	{
 	    if (shooter.bullet_speed > 22.5f)//23
@@ -115,10 +120,12 @@ void Task_Shooter_Callback()
 	    shooter.fricMotor[0].targetSpeed = 0; // 摩擦轮速度
 	    shooter.fricMotor[1].targetSpeed = 0;
 	}
+	// endregion
 
-//堵转处理
-//电机角度与目标角度相差超过10度则进行堵转判定
-    if (abs(shooter.triggerMotor.totalAngle - shooter.triggerMotor.targetAngle) > MOTOR_M3508_DGR2CODE(10) && shooter.command != TRIGGER_REVERSE) 
+	// region 堵转处理
+	//电机角度与目标角度相差超过10度则进行堵转判定
+    if (abs(shooter.triggerMotor.totalAngle - shooter.triggerMotor.targetAngle) > MOTOR_M3508_DGR2CODE(10) 
+		&& shooter.command != TRIGGER_REVERSE) 
 	{
 	    shooter.block.judgeCnt++; //堵转判定计数器++
 
@@ -132,17 +139,22 @@ void Task_Shooter_Callback()
 	{
 	    shooter.block.judgeCnt = 0;
 	}
+	// endregion
+
   	Heat_Limit();
 
-	bool target_reached = shooter.triggerMotor.targetAngle - shooter.triggerMotor.totalAngle < MOTOR_M3508_DGR2CODE(9);
+	// 拨弹电机到位
+	bool target_reached = shooter.triggerMotor.targetAngle - shooter.triggerMotor.totalAngle 
+						< MOTOR_M3508_DGR2CODE(9);
 
+	// 如果拨弹电机到位且正在拨弹就意味着可以开始计时发射时间了😋
 	if (target_reached && shooter.triggeringId >= 0)
 	{
 		shooter.hitAtTick[shooter.triggeringId] = HAL_GetTick() + shooter.triggeringHitTick;
 		shooter.triggeringId = -1;
 	}
 
-    //拨弹
+    // 拨弹
 	switch (shooter.command)
 	{
 	case TRIGGER:
@@ -154,7 +166,7 @@ void Task_Shooter_Callback()
 				shooter.triggeringId = shooter.idToTrigger;
 				shooter.idToTrigger = -1;
 				shooter.command = IDLE;
-				osDelay(t);	
+				osDelay(t);//! 必须修
 			}
 		}
 		else
@@ -170,7 +182,7 @@ void Task_Shooter_Callback()
 			if (target_reached)
 			{
 				shooter.triggerMotor.targetAngle += MOTOR_M3508_DGR2CODE(360*1/9.0*2);  //每次转动1/9圈
-				osDelay(t);
+				osDelay(t);//! 必须修
 			}
 		}
 		else
@@ -183,7 +195,7 @@ void Task_Shooter_Callback()
 					//嘀嘀嘀
 		Beep_PlayNotes((Note[]){{T_M1,D_Sixteenth},{T_M1,D_Sixteenth},{T_M1,D_Sixteenth}},3);          
 		shooter.triggerMotor.targetAngle -= MOTOR_M3508_DGR2CODE(360*1.5/9.0*2); //电机反向拨动1.5/9圈    
-		osDelay(500);
+		osDelay(500);//! 必须修
 		shooter.triggerMotor.targetAngle += MOTOR_M3508_DGR2CODE(360*0.5/9.0*2); //正转0.5/9圈                 
 		shooter.command=IDLE;
 	break;

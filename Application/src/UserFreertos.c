@@ -9,13 +9,6 @@
 
 extern DMA_HandleTypeDef hdma_usart2_rx;
 extern uint8_t usart2RxBuf[256];
-
-
-//閿欒澶勭悊(鎬ュ仠)浠诲姟 
-/*
- 鏃爋s_delay鏈€楂樹紭鍏堢骇 鍦ㄧ▼搴忔甯歌繍琛屾椂涓嶅簲璇ヨ璋冪敤 
- 鍦ㄦ仮澶嶆墽琛屾椂鍗犳嵁鍏ㄩ儴鏃堕棿鐗囬タ姝诲叾浠栦换鍔?
-*/
         
 void OS_ErrorCallback(void const * argument)
 {

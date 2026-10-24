@@ -8,17 +8,21 @@
 
 #define WHEELSPEED_MAX 8000
 
+// 小陀螺
 typedef enum
 {
     ChassisMode_Follow,	  // 底盘跟随云台模式
     ChassisMode_Spin,	  // 小陀螺模式
 } ChassisMode;
 
-typedef enum{
-    Chassis_Control,
-    Chassis_AI
+// AI控制
+typedef enum
+{
+    Chassis_Control,	// 手动控制模式
+    Chassis_AI			// AI控制模式
 }chassis_pattern;
 
+// 底盘结构体
 typedef struct _Chassis
 {
 	// 底盘尺寸信息
@@ -28,7 +32,7 @@ typedef struct _Chassis
 	    float wheeltrack;  // 轮距
 	    float wheelRadius; // 轮半径
 	    float offsetX;	   // 重心在xy轴上的偏移
-	    float offsetY;
+	    float offsetY;	   // 重心在xy轴上的偏移
 	} info;
 	// 8个电机
     Double_motor_t motors[4];
@@ -46,17 +50,18 @@ typedef struct _Chassis
 	    Slope xSlope, ySlope, outputSlope, chargeSlope, spinSlope; // 斜坡
 	} move;
 	
-	// 旋转相关信息
+	// 底盘旋转相关信息
     struct
 	{
 	    PID pid;				// 旋转PID，由relativeAngle计算底盘旋转速度
 	    float relativeAngle;	// 云台与底盘的偏离角 单位度
-        float align_yaw; 		//ai传来云台与垂直起伏路段方向的角度 用于底盘与起伏路段对齐
+        float align_yaw; 		// ai传来云台与垂直起伏路段方向的角度 用于底盘与起伏路段对齐
 	    float InitAngle;		// 云台与底盘对齐时的编码器度数 
 	    int16_t InitpitchAngle; // 云台水平时编码器值
-	    float nowAngle;			// 此时云台的编码器换算为°值
+	    float nowAngle;			// 大yaw电机的当前角度 单位度
 	    ChassisMode mode;		// 底盘模式 小陀螺或者底盘跟随
 	} rotate;
+
     chassis_pattern pattern;
 } Chassis_t;
 

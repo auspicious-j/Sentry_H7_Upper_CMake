@@ -8,48 +8,48 @@
 typedef struct _PID
 {
     float kp,ki,kd;
-    float error,lastError;//���ϴ����
-    float integral,maxIntegral;//���֡������޷�
-    float output,maxOutput;//���������޷�
-    float deadzone;//����
+    float error,lastError;//误差、上次误差
+    float integral,maxIntegral;//积分、积分限幅
+    float output,maxOutput;//输出、输出限幅
+    float deadzone;//死区
 }PID;
 
-/*����ṹ��͹�����*/
+/*串级结构体和控制函数*/
 typedef struct _DEPID
 {
-  float kp;     //����ϵ��
-  float ki;      //����ϵ��
-  float kd;    //΢��ϵ��
-  float lasterror;     //ǰһ��ƫ��
-    float error;				//��ǰerror
-  float output;     //���ֵ
-  float integral;   //����ֵ
-  float derivative;      //΢����
-  float lastPv;     //ǰһ�ĵĲ���ֵ
-  float gama;      //΢�������˲�ϵ��
-    float maxOutput; //����޷�
-    float maxIntegral;//�����޷�
+  float kp;     //比例系数
+  float ki;      //积分系数
+  float kd;    //微分系数
+  float lasterror;     //前一次偏差
+    float error;				//当前error
+  float output;     //输出值
+  float integral;   //积分值
+  float derivative;      //微分值
+  float lastPv;     //前一次的测量值
+  float gama;      //微分项滤波系数
+    float maxOutput; //输出限幅
+    float maxIntegral;//积分限幅
 }DEPID;
 
 typedef struct _CascadePID
 {
-    PID inner;//�ڻ�
-    PID outer;//�⻷
-    DEPID deOuter;//�⻷΢������
-    float output;//�������������inner.output
+    PID inner;//内环
+    PID outer;//外环
+    DEPID deOuter;//外环微分先行
+    float output;//输出，等于inner.output
 }CascadePID;
 
 typedef struct
 {
-    float kp;            // λ�øն�
-    float kd;            // �ٶ�����
+    float kp;            // 位置刚度
+    float kd;            // 速度阻尼
 
-    float deadzone;      // ����
+    float deadzone;      // 死区
 
-    float torque_ff;     // ǰ������ T_ff (Nm)
+    float torque_ff;     // 前馈力矩 T_ff (Nm)
 
-    float maxTorque;     // �����������
-    float outputTorque;  // ������� T_ref
+    float maxTorque;     // 最大输出力矩
+    float outputTorque;  // 输出力矩 T_ref
 } PD_Controller;
 
 

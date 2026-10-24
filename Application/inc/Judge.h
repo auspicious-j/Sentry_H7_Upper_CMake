@@ -455,7 +455,7 @@ typedef struct __attribute__((packed))
     uint8_t power_management_gimbal_output : 1;
     uint8_t power_management_chassis_output : 1;
     uint8_t power_management_shooter_output : 1;
-    float initial_speed;										//弹速
+    float initial_speed;    //17mm子弹初速
     uint8_t self_color;
 }JudgeData_t;
 

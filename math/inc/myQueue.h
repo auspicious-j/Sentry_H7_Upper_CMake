@@ -5,20 +5,20 @@
 
 #define EMPTY_QUEUE {NULL,0,0,0,NULL,0}
 
-/*************���ݽṹ**************/
-//���нṹ��
+/*************数据结构**************/
+//队列结构体
 typedef struct _Queue
 {
-	//��������
-    void **data;//ֻ����ָ�룬��Ҫͬʱ����ָ��������븽�ӱ�����
+	//数据区
+    void **data;//只保存指针，需要同时保存指针数组与附加缓冲区
     uint16_t maxSize;
     uint16_t front,rear;
-	//���ݱ�����(��ѡ��)
+	//数据缓冲区(可选项)
     void *buffer;
-    uint8_t bufElemSize;//ÿ��Ԫ�صĴ�С
+    uint8_t bufElemSize;//每个元素的大小
 }Queue;
 
-/**************�ӿں���***************/
+/**************接口函数***************/
 void Queue_Init(Queue *queue,uint16_t maxSize);
 void Queue_AttachBuffer(Queue *queue,void *buffer,uint8_t elemSize);
 void Queue_Destroy(Queue *queue);

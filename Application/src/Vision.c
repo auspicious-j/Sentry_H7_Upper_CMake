@@ -64,6 +64,7 @@ void Vision_DataReceive(uint8_t *read_from_usart, uint32_t length)
     }
 }
 
+// 打装甲板
 static void Vision_UseArmor(void)
 {
     vision_target.vaild = true;
@@ -86,6 +87,7 @@ static void Vision_UseArmor(void)
     }
 }
 
+// 打符
 static void Vision_UseRune(void)
 {
     int index = -1;
@@ -155,6 +157,7 @@ static void Vision_UseRune(void)
     }
 }
 
+// 搬运数据
 static void Vision_UseData(void)
 {
     vx=-vision_receive.linear_y*1000; //ai部分解包 同时转换坐标系 ai坐标系下向前为x 左右为y 电控坐标系下 左右为x 前后为y
@@ -188,6 +191,7 @@ static void Vision_UseData(void)
     }
 }
 
+// 发送
 static void Vision_DataTransmit(void)
 {
     vision_transmit.header = VISION_FRAME_HEADER_TX;

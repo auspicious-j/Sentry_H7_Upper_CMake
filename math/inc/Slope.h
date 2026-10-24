@@ -3,12 +3,12 @@
 
 #include "main.h"
 
-//б�½ṹ��
+//斜坡结构体
 typedef struct{
-    float target; //Ŀ��ֵ
-    float step; //����ֵ
-    float value; //��ǰֵ
-    float deadzone; //����������ֵС�ڸ�ֵ�򲻽�������
+    float target; //目标值
+    float step; //步长值
+    float value; //当前值
+    float deadzone; //死区，误差小于该值则不进行调节
 }Slope;
 
 void Slope_Init(Slope *slope,float step,float deadzone);

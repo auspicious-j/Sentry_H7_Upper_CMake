@@ -9,7 +9,7 @@
 
 #include <math.h>
 
-float vx, vy, vw;  //AI传来的旋转速度
+float vx, vy, vw;  //AI传来的旋转速度，坐标轴已经翻转了，vx左右，vy前后
 
 Chassis_t chassis = {0};
 
@@ -49,7 +49,8 @@ void Chassis_InitPID()
     PID_SetDeadzone(&chassis.rotate.pid, 0.1);
 }
 
-void Spin_SpeedUpdate() //
+// 最大速更新
+void Spin_SpeedUpdate()
 {
     chassis.move.maxVw = 3.25f; // chassis.move.maxPower * 0.225f + 3.25f
     if (chassis.move.maxVw <= 0.5f)
@@ -71,6 +72,7 @@ void Spin_SpeedUpdate() //
     }
 }
 
+// 更新斜坡函数
 void Chassis_UpdateSlope()
 {
     Slope_NextVal(&chassis.move.xSlope);
@@ -83,7 +85,7 @@ void Chassis_UpdateSlope()
     chassis.move.maxVw = WHEELSPEED_MAX / rotateRatio / 60.0f / (268.f / 17.f) * 2.0f * PI * chassis.info.wheelRadius * 1.0f / 1.414f;
 }
 
-
+// 底盘模式选择
 void Chassis_ModeControl()
 {
     // 左拨杆拨到下方进入小陀螺，拨回来进入跟随模式
@@ -122,6 +124,7 @@ void Task_Chassis_Callback()
 
     Chassis_ModeControl();
 
+    // region 底盘平移的宏观目标，并包含小陀螺选择
     if (chassis.pattern == Chassis_AI )
     {
         Slope_SetTarget(&chassis.move.xSlope,1.5f * vx); //x为前后
@@ -132,6 +135,7 @@ void Task_Chassis_Callback()
         chassis.move.vy=(-Slope_GetVal(&chassis.move.xSlope) * gimbalAngleSin + Slope_GetVal(&chassis.move.ySlope) * gimbalAngleCos);
         Chassis_UpdateSlope();
 
+        //! 视觉接收决定底盘状态，跟Chassis_ModeControl翻转了
         if (vision_receive.spin_mode == 0)
             chassis.rotate.mode = ChassisMode_Follow;
         else
@@ -148,23 +152,24 @@ void Task_Chassis_Callback()
         chassis.move.vy=(-Slope_GetVal(&chassis.move.xSlope) * gimbalAngleSin + Slope_GetVal(&chassis.move.ySlope) * gimbalAngleCos);
         Chassis_UpdateSlope();
     }
+    // endregion
 
-        // 旋转相关内容
+    // 旋转相关内容
     if (chassis.rotate.mode == ChassisMode_Follow) 
     {
         Slope_SetTarget(&chassis.move.spinSlope, 0);
         chassis.rotate.relativeAngle = ModularDegreeTowards(chassis.rotate.relativeAngle, 0.0f);
 
-        if (chassis.pattern==Chassis_Control)
+        if (chassis.pattern==Chassis_Control)//手动控制模式
         {
             PID_SingleCalc(&chassis.rotate.pid, 0, -chassis.rotate.relativeAngle);
 					
             chassis.move.vw = chassis.rotate.pid.output + chassis.move.spinSlope.value;
             LIMIT(chassis.move.vw, -chassis.move.maxVw, chassis.move.maxVw);
         }
-        else
+        else//AI控制模式
         {
-            if (vision_receive.align_mode == 1)
+            if (vision_receive.align_mode == 1)//对齐起伏路段
             {
                 float target = -chassis.rotate.align_yaw;
                 float feedback = ModularDegreeTowards(-chassis.rotate.relativeAngle, target);
@@ -173,7 +178,7 @@ void Task_Chassis_Callback()
                 chassis.move.vw = chassis.rotate.pid.output + chassis.move.spinSlope.value;
                 LIMIT(chassis.move.vw, -chassis.move.maxVw, chassis.move.maxVw);
             }
-            else
+            else//不对齐
             {
                 chassis.move.vw = vw;
                 LIMIT(chassis.move.vw, -chassis.move.maxVw, chassis.move.maxVw);
@@ -187,11 +192,15 @@ void Task_Chassis_Callback()
 
         if (chassis.pattern == Chassis_Control)
         {
-            if (fabsf(Slope_GetVal(&chassis.move.xSlope)) / chassis.move.maxVx + fabsf(Slope_GetVal(&chassis.move.ySlope)) / chassis.move.maxVy > 0.05f)
-                ratio = 0.6f;        
+            // 小陀螺移动就减转速
+            if (fabsf(Slope_GetVal(&chassis.move.xSlope)) / chassis.move.maxVx 
+                + fabsf(Slope_GetVal(&chassis.move.ySlope)) / chassis.move.maxVy 
+                > 0.05f)
+                ratio = 0.6f;
             else
                 ratio = 1.0f;
             
+            //! 重复了，先不改
             Slope_SetTarget(&chassis.move.spinSlope, chassis.move.maxVw * ratio);
         }
         else
@@ -202,13 +211,13 @@ void Task_Chassis_Callback()
         Slope_SetTarget(&chassis.move.spinSlope, chassis.move.maxVw * ratio);
     }
  
-//检测当前角度
+    //检测舵电机当前角度
     for (uint8_t i = 0; i < 4; i++)
     {
         chassis.motors[i].now_angle = ModularDegreeTowards(chassis.motors[i].TurnAngle - chassis.motors[i].TurnOffset, 0.0f);
     }
 
-    /***解算各轮子转速****/
+    // 轮到转轴距
     float rotateRatio[4];
     rotateRatio[0] = 1.414f * (chassis.info.wheelbase + chassis.info.wheeltrack) / 4.0f - chassis.info.offsetY * fabs(chassis.move.spinSlope.value) / chassis.move.maxVw + chassis.info.offsetX * fabs(chassis.move.spinSlope.value) / chassis.move.maxVw;
     rotateRatio[1] = 1.414f * (chassis.info.wheelbase + chassis.info.wheeltrack) / 4.0f - chassis.info.offsetY * fabs(chassis.move.spinSlope.value) / chassis.move.maxVw - chassis.info.offsetX * fabs(chassis.move.spinSlope.value) / chassis.move.maxVw;
@@ -230,7 +239,7 @@ void Task_Chassis_Callback()
     wheelvx[3] = chassis.move.vx - chassis.move.vw * rotateRatio[3] / 1.414f;
     wheelvy[3] = chassis.move.vy - chassis.move.vw * rotateRatio[3] / 1.414f;
 
-    //    舵轮解算
+    // 舵轮解算
     for (uint8_t i = 0; i < 4; i++)
     {
         float target_angle;
